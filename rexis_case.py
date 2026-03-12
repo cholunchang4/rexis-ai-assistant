@@ -7,9 +7,11 @@ st.set_page_config(page_title="REXIS Service Assistant", page_icon="🟦", layou
 
 st.markdown("""
 <style>
-    .stApp { background-color: #F4F5F8; font-family: 'Segoe UI', Arial, sans-serif; }
-    .roche-title { color: #0066CC; font-weight: 800; font-size: 2.2rem; border-bottom: 3px solid #0066CC; padding-bottom: 10px; margin-bottom: 5px; }
-    .roche-subtitle { color: #555555; font-size: 1rem; margin-bottom: 25px; }
+    /* 移除強制背景色，讓 Streamlit 自動適應深色/淺色主題，保護文字不被吃掉 */
+    .roche-title { color: #3388FF; font-weight: 800; font-size: 2.2rem; border-bottom: 3px solid #3388FF; padding-bottom: 10px; margin-bottom: 5px; }
+    .roche-subtitle { color: #AAAAAA; font-size: 1rem; margin-bottom: 25px; }
+    
+    /* PRI/PSI 專屬強烈警示框 (自帶背景與文字顏色，不受主題影響) */
     .pri-alert-box { background-color: #FFF0F0; color: #D32F2F; padding: 20px; border-left: 8px solid #D32F2F; border-radius: 6px; font-size: 1.15rem; font-weight: bold; margin-top: 20px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); line-height: 1.6; }
     .pri-alert-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 8px; display: flex; align-items: center; }
     .pri-reasoning { background-color: #E8F0FE; color: #004494; padding: 15px; border-radius: 6px; font-size: 1rem; margin-bottom: 20px; border: 1px solid #B6D4FE; }
@@ -21,7 +23,7 @@ st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 
 
 # --- 2. 側邊欄：設定 API Key ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #0066CC;'>⚙️ System Settings</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #3388FF;'>⚙️ System Settings</h3>", unsafe_allow_html=True)
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         st.success("✅ Secure API Key Loaded")
@@ -114,7 +116,7 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
 
     if st.session_state.chat_session is None:
         genai.configure(api_key=api_key)
-        # 使用 2.5-flash 模型確保穩定運作
+        # 使用穩定且強大的模型版本
         model = genai.GenerativeModel('gemini-2.5-flash') 
         
         history_parts = [SYSTEM_PROMPT + "\n\n請了解上述規則，了解請回覆『OK』。"]
@@ -158,5 +160,4 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
                 st.session_state.messages.append({"role": "assistant", "content": clean_text})
                 
             except Exception as e:
-                # 確保結尾完整無缺的報錯訊息處理
                 st.error(f"❌ 發生錯誤，請檢查網路狀態或 API 額度。\n錯誤訊息：{e}")
