@@ -2,19 +2,86 @@ import streamlit as st
 import google.generativeai as genai
 import os
 
-# --- 1. 頁面基本設定與 Roche 企業風格 (CSS) ---
+# --- 1. 頁面基本設定與 Roche 企業風格 (自動適應深淺色 CSS) ---
 st.set_page_config(page_title="REXIS Service Assistant", page_icon="🟦", layout="centered")
 
 st.markdown("""
 <style>
-    /* 移除強制背景色，讓 Streamlit 自動適應深色/淺色主題，保護文字不被吃掉 */
-    .roche-title { color: #3388FF; font-weight: 800; font-size: 2.2rem; border-bottom: 3px solid #3388FF; padding-bottom: 10px; margin-bottom: 5px; }
-    .roche-subtitle { color: #AAAAAA; font-size: 1rem; margin-bottom: 25px; }
+    /* 定義淺色模式 (預設) 的 Roche 品牌色票 */
+    :root {
+        --roche-blue: #0066CC;
+        --subtitle-color: #555555;
+        --alert-bg: #FFF0F0;
+        --alert-border: #D32F2F;
+        --alert-text: #B71C1C;
+        --info-bg: #E8F0FE;
+        --info-border: #B6D4FE;
+        --info-text: #004494;
+    }
+
+    /* 偵測使用者系統，自動切換為深色模式色票 */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --roche-blue: #5B9AFF; /* 提高明度的羅氏藍，保護眼睛並提升對比 */
+            --subtitle-color: #AAAAAA;
+            --alert-bg: #3A1616;   /* 深酒紅底色，避免夜間過亮 */
+            --alert-border: #FF6666;
+            --alert-text: #FF9999;
+            --info-bg: #142840;    /* 深灰藍底色 */
+            --info-border: #2D5A88;
+            --info-text: #8AB4F8;
+        }
+    }
+
+    /* 將變數應用到介面元素上 */
+    .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
     
-    /* PRI/PSI 專屬強烈警示框 (自帶背景與文字顏色，不受主題影響) */
-    .pri-alert-box { background-color: #FFF0F0; color: #D32F2F; padding: 20px; border-left: 8px solid #D32F2F; border-radius: 6px; font-size: 1.15rem; font-weight: bold; margin-top: 20px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); line-height: 1.6; }
-    .pri-alert-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 8px; display: flex; align-items: center; }
-    .pri-reasoning { background-color: #E8F0FE; color: #004494; padding: 15px; border-radius: 6px; font-size: 1rem; margin-bottom: 20px; border: 1px solid #B6D4FE; }
+    .roche-title { 
+        color: var(--roche-blue); 
+        font-weight: 800; 
+        font-size: 2.2rem; 
+        border-bottom: 3px solid var(--roche-blue); 
+        padding-bottom: 10px; 
+        margin-bottom: 5px; 
+    }
+    
+    .roche-subtitle { 
+        color: var(--subtitle-color); 
+        font-size: 1rem; 
+        margin-bottom: 25px; 
+    }
+    
+    .pri-alert-box { 
+        background-color: var(--alert-bg); 
+        color: var(--alert-text); 
+        padding: 20px; 
+        border-left: 8px solid var(--alert-border); 
+        border-radius: 6px; 
+        font-size: 1.15rem; 
+        font-weight: bold; 
+        margin-top: 20px; 
+        margin-bottom: 25px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        line-height: 1.6; 
+    }
+    
+    .pri-alert-title { 
+        font-size: 1.4rem; 
+        font-weight: 900; 
+        margin-bottom: 8px; 
+        display: flex; 
+        align-items: center; 
+    }
+    
+    .pri-reasoning { 
+        background-color: var(--info-bg); 
+        color: var(--info-text); 
+        padding: 15px; 
+        border-radius: 6px; 
+        font-size: 1rem; 
+        margin-bottom: 20px; 
+        border: 1px solid var(--info-border); 
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -23,7 +90,7 @@ st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 
 
 # --- 2. 側邊欄：設定 API Key ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #3388FF;'>⚙️ System Settings</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: var(--roche-blue);'>⚙️ System Settings</h3>", unsafe_allow_html=True)
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         st.success("✅ Secure API Key Loaded")
