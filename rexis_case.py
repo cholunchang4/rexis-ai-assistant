@@ -98,7 +98,6 @@ if "chat_session" not in st.session_state:
 # --- 6. 顯示對話歷史 ---
 for msg in st.session_state.messages:
     if msg["role"] == "assistant" and "💡 **PRI 評估說明：**" in msg["content"]:
-        # 美化輸出的 PRI 理由
         parts = msg["content"].split("✅ **轉換完成")
         st.markdown(f'<div class="pri-reasoning">{parts[0]}</div>', unsafe_allow_html=True)
         if len(parts) > 1:
@@ -113,13 +112,11 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
         st.markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
-    # 建立對話並塞入 PDF 文件
     if st.session_state.chat_session is None:
         genai.configure(api_key=api_key)
-        # 使用 1.5-flash 以支援長文本 PDF 讀取
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        # ⚠️ 已改回您測試成功的版本：gemini-2.5-flash
+        model = genai.GenerativeModel('gemini-2.5-flash') 
         
-        # 將 PDF 文件加入歷史紀錄的開頭
         history_parts = [SYSTEM_PROMPT + "\n\n請了解上述規則，了解請回覆『OK』。"]
         if pdf_document:
             history_parts.insert(0, pdf_document)
@@ -161,4 +158,4 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
                 st.session_state.messages.append({"role": "assistant", "content": clean_text})
                 
             except Exception as e:
-                st.error(f"❌ 發生錯誤，請檢查網路狀態或 API 額度。\n錯誤訊息：{e}")
+                st.error(f"❌ 發生錯誤，請檢查網路狀態或 API 額度
