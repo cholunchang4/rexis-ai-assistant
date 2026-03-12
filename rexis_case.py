@@ -114,7 +114,7 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
 
     if st.session_state.chat_session is None:
         genai.configure(api_key=api_key)
-        # ⚠️ 已改回您測試成功的版本：gemini-2.5-flash
+        # 使用 2.5-flash 模型確保穩定運作
         model = genai.GenerativeModel('gemini-2.5-flash') 
         
         history_parts = [SYSTEM_PROMPT + "\n\n請了解上述規則，了解請回覆『OK』。"]
@@ -158,4 +158,5 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
                 st.session_state.messages.append({"role": "assistant", "content": clean_text})
                 
             except Exception as e:
-                st.error(f"❌ 發生錯誤，請檢查網路狀態或 API 額度
+                # 確保結尾完整無缺的報錯訊息處理
+                st.error(f"❌ 發生錯誤，請檢查網路狀態或 API 額度。\n錯誤訊息：{e}")
