@@ -1,94 +1,45 @@
 import streamlit as st
 import google.generativeai as genai
 import os
+import urllib.parse
+from streamlit_mic_recorder import speech_to_text
 
-# --- 1. 頁面基本設定與 Roche 企業風格 (自動適應深淺色 CSS) ---
+# --- 1. 頁面基本設定與 Roche 企業風格 (CSS) ---
 st.set_page_config(page_title="REXIS Service Assistant", page_icon="🟦", layout="centered")
 
 st.markdown("""
 <style>
-    /* 定義淺色模式 (預設) 的 Roche 品牌色票 */
     :root {
-        --roche-blue: #0066CC;
-        --subtitle-color: #555555;
-        --alert-bg: #FFF0F0;
-        --alert-border: #D32F2F;
-        --alert-text: #B71C1C;
-        --info-bg: #E8F0FE;
-        --info-border: #B6D4FE;
-        --info-text: #004494;
+        --roche-blue: #0066CC; --subtitle-color: #555555;
+        --alert-bg: #FFF0F0; --alert-border: #D32F2F; --alert-text: #B71C1C;
+        --info-bg: #E8F0FE; --info-border: #B6D4FE; --info-text: #004494;
     }
-
-    /* 偵測使用者系統，自動切換為深色模式色票 */
     @media (prefers-color-scheme: dark) {
         :root {
-            --roche-blue: #5B9AFF; /* 提高明度的羅氏藍，保護眼睛並提升對比 */
-            --subtitle-color: #AAAAAA;
-            --alert-bg: #3A1616;   /* 深酒紅底色，避免夜間過亮 */
-            --alert-border: #FF6666;
-            --alert-text: #FF9999;
-            --info-bg: #142840;    /* 深灰藍底色 */
-            --info-border: #2D5A88;
-            --info-text: #8AB4F8;
+            --roche-blue: #5B9AFF; --subtitle-color: #AAAAAA;
+            --alert-bg: #3A1616; --alert-border: #FF6666; --alert-text: #FF9999;
+            --info-bg: #142840; --info-border: #2D5A88; --info-text: #8AB4F8;
         }
     }
-
-    /* 將變數應用到介面元素上 */
     .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
+    .roche-title { color: var(--roche-blue); font-weight: 800; font-size: 2.2rem; border-bottom: 3px solid var(--roche-blue); padding-bottom: 10px; margin-bottom: 5px; }
+    .roche-subtitle { color: var(--subtitle-color); font-size: 1rem; margin-bottom: 25px; }
     
-    .roche-title { 
-        color: var(--roche-blue); 
-        font-weight: 800; 
-        font-size: 2.2rem; 
-        border-bottom: 3px solid var(--roche-blue); 
-        padding-bottom: 10px; 
-        margin-bottom: 5px; 
-    }
+    /* 重新排版的 PRI 警示與說明區塊 */
+    .pri-container { margin-top: 15px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden; }
+    .pri-alert-header { background-color: var(--alert-bg); color: var(--alert-text); padding: 15px 20px; font-size: 1.25rem; font-weight: 900; border-left: 8px solid var(--alert-border); display: flex; align-items: center; }
+    .pri-reasoning-body { background-color: var(--info-bg); color: var(--info-text); padding: 15px 20px; font-size: 0.95rem; line-height: 1.6; border-left: 8px solid var(--info-border); border-top: 1px solid #ffffff33; }
     
-    .roche-subtitle { 
-        color: var(--subtitle-color); 
-        font-size: 1rem; 
-        margin-bottom: 25px; 
-    }
-    
-    .pri-alert-box { 
-        background-color: var(--alert-bg); 
-        color: var(--alert-text); 
-        padding: 20px; 
-        border-left: 8px solid var(--alert-border); 
-        border-radius: 6px; 
-        font-size: 1.15rem; 
-        font-weight: bold; 
-        margin-top: 20px; 
-        margin-bottom: 25px; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        line-height: 1.6; 
-    }
-    
-    .pri-alert-title { 
-        font-size: 1.4rem; 
-        font-weight: 900; 
-        margin-bottom: 8px; 
-        display: flex; 
-        align-items: center; 
-    }
-    
-    .pri-reasoning { 
-        background-color: var(--info-bg); 
-        color: var(--info-text); 
-        padding: 15px; 
-        border-radius: 6px; 
-        font-size: 1rem; 
-        margin-bottom: 20px; 
-        border: 1px solid var(--info-border); 
-    }
+    .developer-signature { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #E0E0E0; color: #888888; font-size: 0.85rem; font-weight: 500; letter-spacing: 0.5px;}
+    .email-btn { background-color: var(--roche-blue); color: white !important; padding: 0.4rem 1rem; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.9rem; display: inline-block; margin-top: 10px; text-align: center;}
+    .email-btn:hover { opacity: 0.8; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="roche-title">REXIS Service AI Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統 (PDF 增強版)</div>', unsafe_allow_html=True)
+st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統</div>', unsafe_allow_html=True)
 
-# --- 2. 側邊欄：設定 API Key ---
+# --- 2. 側邊欄：設定 API、Email 與開發者簽名 ---
 with st.sidebar:
     st.markdown("<h3 style='color: var(--roche-blue);'>⚙️ System Settings</h3>", unsafe_allow_html=True)
     try:
@@ -97,19 +48,23 @@ with st.sidebar:
     except KeyError:
         st.error("⚠️ 尚未設定雲端 API Key 保險箱！")
         st.stop()
-        
+    
+    st.markdown("---")
+    # 預設 Email 設定區塊
+    st.markdown("📩 **匯出設定**")
+    default_email = st.text_input("預設收件信箱 (例如主管信箱)", value="", placeholder="name@roche.com")
+    
+    st.markdown("---")
     if st.button("🔄 Restart Session (清除紀錄)"):
         st.session_state.messages = []
         st.session_state.chat_session = None
         st.rerun()
         
-    st.markdown("---")
-    st.caption("💡 提示：若為檢驗數值異常 (ER) 案件，請盡量提供原數值與重測數值。AI 將自動比對 PRI_Criteria.pdf 進行判定。")
+    st.markdown('<div class="developer-signature">Designed & Developed by<br><b>Cholun Chang</b></div>', unsafe_allow_html=True)
 
 # --- 3. 核心功能：快取並上傳 PDF 文件 ---
 @st.cache_resource
 def load_document_to_gemini(key, file_path):
-    """將 PDF 上傳給 Gemini 並回傳文件物件，避免每次對話重複上傳"""
     genai.configure(api_key=key)
     if os.path.exists(file_path):
         try:
@@ -121,78 +76,86 @@ def load_document_to_gemini(key, file_path):
         st.sidebar.warning(f"找不到 {file_path}，AI 將僅能依賴基本邏輯判斷。")
         return None
 
-# 初始化文件
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 4. 系統提示詞 (Prompt) 模板 - 強制說明觸發理由 ---
+# --- 4. 系統提示詞 (Prompt) 模板 ---
 SYSTEM_PROMPT = """
 你是一位專業的「IVD 設備商」資深技術與應用支援主管，精通 Roche 的 QARA 規範。
-我會提供一份名為 PRI_Criteria.pdf 的法規文件。請你**嚴格依據這份文件中的標準（特別是 Criteria to classify as PRI ER）**來評估工程師的日誌。
+我會提供一份名為 PRI_Criteria.pdf 的法規文件。請你嚴格依據這份文件中的標準來評估工程師的日誌。
 
 【PRI / PSI 智能判斷與提問邏輯】
-1. 若為單純硬體故障（無數值異常或錯誤報告發出），請勿詢問 PRI，直接輸出日誌。
-2. 若涉及檢驗異常 (ER)：
-   - 請自動在 PDF 中搜尋對應的 Parameter/Test（如 HbA1c, Troponin T hs 等）。
-   - 確認工程師提供的數值偏差是否達到 PDF 中規定的標準。
-   - 若資訊不足以計算偏差或確認是否影響臨床決策，請提問要求補充（如：「請問原測量值與重測值各是多少？」）。
+1. 若為單純硬體故障，直接輸出日誌，不提法規。
+2. 若涉及檢驗異常 (ER)：搜尋 PDF 標準，確認偏差是否達標。資訊不足請提問。
 
 【目標格式與觸發說明機制】
-當資訊齊全準備輸出最終日誌時，請依據以下結構輸出：
-
-1. **法規判斷觸發器與說明**：
-   - 如果案件達到 PDF 中的 PRI 升級標準，請在最開頭獨立一行輸出 `[PRI_ALERT]`。
-   - 緊接著 `[PRI_ALERT]` 之後，**你必須**輸出一段名為「💡 **PRI 評估說明：**」的文字，明確寫出：
-     (1) 參考的文件 Unique Identifier (如 CT-174) 與測試項目。
-     (2) 文件中規定的確切升級標準 (Criteria)。
-     (3) 根據工程師輸入的數值，你計算出的偏差值為何，以及為何判定達標/未達標。
-     範例：「根據文件 CT-174 (Troponin T hs)，標準為數值 >=14 pg/mL 時誤差大於 20%。本次原值 20，重測值 14，偏差達 30%，因此觸發 PRI 升級。」
-
-2. 接著輸出「✅ **轉換完成，標準格式如下：**」
-3. 嚴格輸出 5 大標準項目：
-* **01_客戶問題描述與報錯代碼**
-* **02_客戶已經採取哪些行動嘗試解決問題**
-* **03_處理過程與觀察測試結果**
-* **04_本次服務是否結案**
-* **05_客戶需要配合與改善的事項**
+1. **法規判斷觸發器**：若達 PRI 升級標準，最開頭輸出 `[PRI_ALERT]`。
+2. **PRI 評估說明**：緊接在後，輸出「💡 **PRI 評估說明：**」，說明參考的 CT 代碼、標準與偏差計算。
+3. 輸出「✅ **轉換完成，可利用下方按鈕一鍵複製或匯出：**」
+4. 務必將 5 大標準項目包覆在 ```text 區塊中。
 """
 
 # --- 5. 初始化 Session State ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "您好！請輸入本次的現場服務筆記。系統將自動為您格式化，並比對 PRI_Criteria 文件進行精準的法規風險評估。"}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "您好！請輸入本次的現場服務筆記，**您也可以點擊下方麥克風使用語音輸入** 🎙️。系統將為您自動格式化並評估法規風險。"}]
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = None
 
-# --- 6. 顯示對話歷史 ---
+# --- 6. 顯示對話歷史與匯出按鈕 ---
 for msg in st.session_state.messages:
     if msg["role"] == "assistant" and "💡 **PRI 評估說明：**" in msg["content"]:
         parts = msg["content"].split("✅ **轉換完成")
-        st.markdown(f'<div class="pri-reasoning">{parts[0]}</div>', unsafe_allow_html=True)
+        reasoning = parts[0].replace("💡 **PRI 評估說明：**", "").strip()
+        
+        # 重新排版的高質感 PRI 區塊
+        st.markdown(f"""
+        <div class="pri-container">
+            <div class="pri-alert-header">🚨 【法規升級警告】請開立 PRI/PSI 案件</div>
+            <div class="pri-reasoning-body"><b>💡 系統評估依據：</b><br>{reasoning}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
         if len(parts) > 1:
             st.markdown("✅ **轉換完成" + parts[1])
+            
+            # 加入下載與 Email 按鈕
+            log_content = parts[1].split("```text")[-1].replace("```", "").strip()
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                st.download_button("💾 下載 TXT", data=log_content, file_name="REXIS_Service_Log.txt", mime="text/plain")
+            with col2:
+                # 生成 Email Mailto 連結
+                subject = urllib.parse.quote("REXIS Service Log 提報")
+                body = urllib.parse.quote("主管您好，\n\n以下為本次服務日誌：\n\n" + log_content + "\n\nDesigned & Developed by Cholun Chang")
+                mailto_url = f"mailto:{default_email}?subject={subject}&body={body}"
+                st.markdown(f'<a href="{mailto_url}" target="_blank" class="email-btn">📧 以 Email 發送</a>', unsafe_allow_html=True)
     else:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# --- 7. 使用者輸入與 AI 處理 ---
-if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
+# --- 7. 輸入區 (文字 + 語音) ---
+st.markdown("---")
+# 語音輸入按鈕
+spoken_text = speech_to_text(language='zh-TW', start_prompt="🎙️ 點此開始錄音 (允許麥克風權限)", stop_prompt="⏹️ 點此停止錄音", just_once=True, key='STT')
+# 文字輸入框
+text_input = st.chat_input("或在此輸入文字狀況...")
+
+# 整合輸入來源
+user_input = spoken_text if spoken_text else text_input
+
+if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     if st.session_state.chat_session is None:
         genai.configure(api_key=api_key)
-        # 使用穩定且強大的模型版本
         model = genai.GenerativeModel('gemini-2.5-flash') 
-        
         history_parts = [SYSTEM_PROMPT + "\n\n請了解上述規則，了解請回覆『OK』。"]
         if pdf_document:
             history_parts.insert(0, pdf_document)
-            
         st.session_state.chat_session = model.start_chat(history=[
             {"role": "user", "parts": history_parts},
-            {"role": "model", "parts": ["OK，我已完全了解，將會讀取文件標準，並在判定觸發 PRI 時明確說明引用條款與計算理由。請輸入服務筆記。"]}
+            {"role": "model", "parts": ["OK，我已完全了解。請輸入服務筆記。"]}
         ])
 
     with st.chat_message("assistant"):
@@ -201,26 +164,34 @@ if user_input := st.chat_input("在此輸入現場狀況，或回覆提問..."):
                 response = st.session_state.chat_session.send_message(user_input)
                 raw_text = response.text
                 
-                # --- 攔截 PRI_ALERT 標籤並觸發大字報 ---
                 if "[PRI_ALERT]" in raw_text:
-                    st.markdown("""
-                    <div class="pri-alert-box">
-                        <div class="pri-alert-title">🚨 【法規升級警告】</div>
-                        系統偵測到此案件涉及顯著的檢驗數值異常 (ER) 或錯誤報告發出。<br>
-                        依據羅氏 QARA 規範與清單比對，此案件符合 PRI / PSI 通報標準。<br><br>
-                        <b>🛑 請勿將此 Log 存入一般案件，請立即「重新開立專屬的 PRI/PSI 案件」進行處理與通報！</b>
-                    </div>
-                    """, unsafe_allow_html=True)
                     clean_text = raw_text.replace("[PRI_ALERT]", "").strip()
                 else:
                     clean_text = raw_text
 
-                # 顯示 AI 的評估說明與 5 大點內文
+                # 處理即時生成的 UI 與匯出按鈕
                 if "💡 **PRI 評估說明：**" in clean_text:
                     parts = clean_text.split("✅ **轉換完成")
-                    st.markdown(f'<div class="pri-reasoning">{parts[0]}</div>', unsafe_allow_html=True)
+                    reasoning = parts[0].replace("💡 **PRI 評估說明：**", "").strip()
+                    st.markdown(f"""
+                    <div class="pri-container">
+                        <div class="pri-alert-header">🚨 【法規升級警告】請開立 PRI/PSI 案件</div>
+                        <div class="pri-reasoning-body"><b>💡 系統評估依據：</b><br>{reasoning}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
                     if len(parts) > 1:
                         st.markdown("✅ **轉換完成" + parts[1])
+                        # 加入下載與 Email 按鈕
+                        log_content = parts[1].split("```text")[-1].replace("```", "").strip()
+                        col1, col2 = st.columns([1, 4])
+                        with col1:
+                            st.download_button("💾 下載 TXT", data=log_content, file_name="REXIS_Service_Log.txt", mime="text/plain", key="dl_current")
+                        with col2:
+                            subject = urllib.parse.quote("REXIS Service Log 提報")
+                            body = urllib.parse.quote("主管您好，\n\n以下為本次服務日誌：\n\n" + log_content + "\n\nDesigned & Developed by Cholun Chang")
+                            mailto_url = f"mailto:{default_email}?subject={subject}&body={body}"
+                            st.markdown(f'<a href="{mailto_url}" target="_blank" class="email-btn">📧 以 Email 發送</a>', unsafe_allow_html=True)
                 else:
                     st.markdown(clean_text)
                 
