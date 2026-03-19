@@ -41,7 +41,7 @@ st.markdown("""
     .stApp { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .roche-title { color: var(--primary-color); font-weight: 800; font-size: 2.2rem; margin-bottom: 0px; letter-spacing: -0.5px;}
     .title-divider { height: 3px; width: 40px; background-color: var(--primary-color); border-radius: 2px; margin-top: 8px; margin-bottom: 12px; }
-    .roche-subtitle { color: var(--text-muted); font-size: 1rem; font-weight: 500; margin-bottom: 25px; }
+    .roche-subtitle { color: var(--text-muted); font-size: 1rem; font-weight: 500; margin-bottom: 20px; }
     
     .base-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .alert-card { border-left: 4px solid var(--alert-border); background-color: var(--alert-bg); }
@@ -96,11 +96,24 @@ if "messages" not in st.session_state:
 if "chat_session" not in st.session_state: st.session_state.chat_session = None
 if "mic_key" not in st.session_state: st.session_state.mic_key = 0 
 
-# --- 4. 標題與側邊欄 ---
+# --- 4. 標題與操作說明 ---
 st.markdown('<div class="roche-title">REXIS Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
 st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統</div>', unsafe_allow_html=True)
 
+with st.expander("📖 系統操作指南 (點擊展開)"):
+    st.markdown("""
+    **👋 歡迎！本系統將協助您以最高效率產出標準日誌，並自動把關法規風險。**
+    
+    * 🎙️ **語音/文字輸入：** 若案件涉及檢驗數值異常 (ER)，請務必提及「測試項目」、「原數值」與「重測數值」。提及「醫院名稱」將自動為檔案命名。
+    * 🛡️ **法規智能判斷：** 系統背景比對羅氏原廠文件。若觸發 PRI 升級標準，將以卡片提示您另開專案。
+    * ⚡ **鍵盤極速操作 (快捷鍵)：**
+        * `Ctrl + Shift + C`：一鍵複製產出的 5大點日誌。
+        * `Ctrl + Shift + E`：將日誌快速發送至側邊欄設定的個人備份信箱。
+        * `Ctrl + Shift + S`：快速下載 TXT 檔。
+    """)
+
+# --- 5. 側邊欄 ---
 with st.sidebar:
     st.markdown("<h3 style='color: var(--primary-color); font-weight:700;'>⚙️ Settings</h3>", unsafe_allow_html=True)
     try: api_key = st.secrets["GEMINI_API_KEY"]
@@ -125,7 +138,7 @@ def load_document_to_gemini(key, file_path):
     return None
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 5. 系統提示詞 (導入軍規級標籤系統) ---
+# --- 6. 系統提示詞 (導入軍規級標籤系統) ---
 SYSTEM_PROMPT = """
 你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範。
 【法規判斷邏輯】
@@ -146,7 +159,7 @@ SYSTEM_PROMPT = """
 * 05_客戶需要配合與改善的事項：[內容或 NA]
 """
 
-# --- 6. 訊息渲染引擎 (精準解析器) ---
+# --- 7. 訊息渲染引擎 (精準解析器) ---
 def render_assistant_message(msg_content):
     # 解析標籤
     hosp_match = re.search(r"\[HOSP_NAME\]\s*(.+)", msg_content)
@@ -205,7 +218,7 @@ for msg in st.session_state.messages:
     else:
         with st.chat_message("user"): st.markdown(msg["content"])
 
-# --- 7. 輸入區 ---
+# --- 8. 輸入區 ---
 st.markdown("---")
 dynamic_mic_key = f"STT_{st.session_state.mic_key}"
 spoken_text = speech_to_text(language='zh-TW', start_prompt="🎙️ 點此開始錄音", stop_prompt="⏹️ 停止錄音並送出", just_once=True, key=dynamic_mic_key)
