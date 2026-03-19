@@ -3,6 +3,7 @@ import google.generativeai as genai
 import os
 import urllib.parse
 from streamlit_mic_recorder import speech_to_text
+import streamlit.components.v1 as components
 
 # --- 1. 頁面基本設定與 Roche 企業風格 (CSS) ---
 st.set_page_config(page_title="REXIS Service Assistant", page_icon="🟦", layout="centered")
@@ -23,9 +24,8 @@ st.markdown("""
     }
     .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
     .roche-title { color: var(--roche-blue); font-weight: 800; font-size: 2.2rem; border-bottom: 3px solid var(--roche-blue); padding-bottom: 10px; margin-bottom: 5px; }
-    .roche-subtitle { color: var(--subtitle-color); font-size: 1rem; margin-bottom: 25px; }
+    .roche-subtitle { color: var(--subtitle-color); font-size: 1rem; margin-bottom: 15px; }
     
-    /* 重新排版的 PRI 警示與說明區塊 */
     .pri-container { margin-top: 15px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden; }
     .pri-alert-header { background-color: var(--alert-bg); color: var(--alert-text); padding: 15px 20px; font-size: 1.25rem; font-weight: 900; border-left: 8px solid var(--alert-border); display: flex; align-items: center; }
     .pri-reasoning-body { background-color: var(--info-bg); color: var(--info-text); padding: 15px 20px; font-size: 0.95rem; line-height: 1.6; border-left: 8px solid var(--info-border); border-top: 1px solid #ffffff33; }
@@ -36,10 +36,59 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- 2. 注入 JavaScript 快捷鍵監聽器 (隱藏於背景) ---
+components.html("""
+<script>
+const doc = window.parent.document;
+doc.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+        if (e.key.toLowerCase() === 'e') {
+            e.preventDefault();
+            let emailBtns = Array.from(doc.querySelectorAll('.email-btn'));
+            if(emailBtns.length > 0) emailBtns[emailBtns.length - 1].click();
+        }
+        if (e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            let buttons = Array.from(doc.querySelectorAll('button'));
+            let dlBtns = buttons.filter(b => b.innerText.includes('下載 TXT'));
+            if(dlBtns.length > 0) dlBtns[dlBtns.length - 1].click();
+        }
+        if (e.key.toLowerCase() === 'c') {
+            e.preventDefault();
+            let codeBlocks = doc.querySelectorAll('code');
+            if(codeBlocks.length > 0) {
+                navigator.clipboard.writeText(codeBlocks[codeBlocks.length - 1].innerText);
+                let toast = doc.createElement('div');
+                toast.innerText = '✅ 5大點日誌已成功複製！';
+                toast.style.cssText = 'position:fixed; bottom:30px; right:30px; background:#0066CC; color:white; padding:12px 24px; border-radius:8px; z-index:9999; font-weight:bold; box-shadow:0 4px 12px rgba(0,0,0,0.3); transition: opacity 0.5s;';
+                doc.body.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 2000);
+            }
+        }
+    }
+});
+</script>
+""", height=0, width=0)
+
+# --- 3. 標題區塊與使用說明 ---
 st.markdown('<div class="roche-title">REXIS Service AI Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統</div>', unsafe_allow_html=True)
 
-# --- 2. 側邊欄：設定 API、Email 與開發者簽名 ---
+# 📖 加入可折疊的使用說明
+with st.expander("📖 如何使用此系統？ (點擊展開)"):
+    st.markdown("""
+    **👋 歡迎使用 REXIS AI 助手！本系統將協助您快速產出標準日誌，並自動把關法規風險。**
+    
+    1. **輸入狀況：** 在下方輸入框打字，或點擊「🎙️」按鈕使用語音輸入。
+       * *💡 提示：若案件涉及檢驗數值異常 (ER)，請盡量提供「測試項目」、「原數值」與「重測數值」，以利系統比對。*
+    2. **AI 智慧處理：** 系統會自動將口語內容轉為 REXIS 標準 5 大點格式。
+    3. **🛡️ 法規自動判斷：** 系統會背景讀取羅氏原廠文件。若您的案件符合 PRI/PSI 升級標準，會彈出 **紅色大字報** 與 **法規評估說明**，提醒您須另開專屬案件通報。
+    4. **一鍵匯出與快捷鍵：** * 點擊右側按鈕或使用快捷鍵 **`Ctrl + Shift + C`** 即可一鍵複製日誌。
+       * 可設定預設主管信箱，使用 **`Ctrl + Shift + E`** 快速發送 Email。
+       * 使用 **`Ctrl + Shift + S`** 可快速下載日誌 TXT 檔。
+    """)
+
+# --- 4. 側邊欄：設定 API、Email 與開發者簽名 ---
 with st.sidebar:
     st.markdown("<h3 style='color: var(--roche-blue);'>⚙️ System Settings</h3>", unsafe_allow_html=True)
     try:
@@ -50,7 +99,6 @@ with st.sidebar:
         st.stop()
     
     st.markdown("---")
-    # 預設 Email 設定區塊
     st.markdown("📩 **匯出設定**")
     default_email = st.text_input("預設收件信箱 (例如主管信箱)", value="", placeholder="name@roche.com")
     
@@ -62,7 +110,7 @@ with st.sidebar:
         
     st.markdown('<div class="developer-signature">Designed & Developed by<br><b>Cholun Chang</b></div>', unsafe_allow_html=True)
 
-# --- 3. 核心功能：快取並上傳 PDF 文件 ---
+# --- 5. 核心功能：快取並上傳 PDF 文件 ---
 @st.cache_resource
 def load_document_to_gemini(key, file_path):
     genai.configure(api_key=key)
@@ -78,7 +126,7 @@ def load_document_to_gemini(key, file_path):
 
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 4. 系統提示詞 (Prompt) 模板 ---
+# --- 6. 系統提示詞 (Prompt) 模板 ---
 SYSTEM_PROMPT = """
 你是一位專業的「IVD 設備商」資深技術與應用支援主管，精通 Roche 的 QARA 規範。
 我會提供一份名為 PRI_Criteria.pdf 的法規文件。請你嚴格依據這份文件中的標準來評估工程師的日誌。
@@ -90,23 +138,22 @@ SYSTEM_PROMPT = """
 【目標格式與觸發說明機制】
 1. **法規判斷觸發器**：若達 PRI 升級標準，最開頭輸出 `[PRI_ALERT]`。
 2. **PRI 評估說明**：緊接在後，輸出「💡 **PRI 評估說明：**」，說明參考的 CT 代碼、標準與偏差計算。
-3. 輸出「✅ **轉換完成，可利用下方按鈕一鍵複製或匯出：**」
+3. 輸出「✅ **轉換完成，可利用快捷鍵或下方按鈕操作：**」
 4. 務必將 5 大標準項目包覆在 ```text 區塊中。
 """
 
-# --- 5. 初始化 Session State ---
+# --- 7. 初始化 Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "您好！請輸入本次的現場服務筆記，**您也可以點擊下方麥克風使用語音輸入** 🎙️。系統將為您自動格式化並評估法規風險。"}]
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = None
 
-# --- 6. 顯示對話歷史與匯出按鈕 ---
-for msg in st.session_state.messages:
+# --- 8. 顯示對話歷史與動態按鈕 ---
+for i, msg in enumerate(st.session_state.messages):
     if msg["role"] == "assistant" and "💡 **PRI 評估說明：**" in msg["content"]:
         parts = msg["content"].split("✅ **轉換完成")
         reasoning = parts[0].replace("💡 **PRI 評估說明：**", "").strip()
         
-        # 重新排版的高質感 PRI 區塊
         st.markdown(f"""
         <div class="pri-container">
             <div class="pri-alert-header">🚨 【法規升級警告】請開立 PRI/PSI 案件</div>
@@ -117,13 +164,11 @@ for msg in st.session_state.messages:
         if len(parts) > 1:
             st.markdown("✅ **轉換完成" + parts[1])
             
-            # 加入下載與 Email 按鈕
             log_content = parts[1].split("```text")[-1].replace("```", "").strip()
             col1, col2 = st.columns([1, 4])
             with col1:
-                st.download_button("💾 下載 TXT", data=log_content, file_name="REXIS_Service_Log.txt", mime="text/plain")
+                st.download_button("💾 下載 TXT", data=log_content, file_name="REXIS_Service_Log.txt", mime="text/plain", key=f"dl_{i}")
             with col2:
-                # 生成 Email Mailto 連結
                 subject = urllib.parse.quote("REXIS Service Log 提報")
                 body = urllib.parse.quote("主管您好，\n\n以下為本次服務日誌：\n\n" + log_content + "\n\nDesigned & Developed by Cholun Chang")
                 mailto_url = f"mailto:{default_email}?subject={subject}&body={body}"
@@ -132,14 +177,13 @@ for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# --- 7. 輸入區 (文字 + 語音) ---
+# --- 9. 輸入區 (文字 + 語音) ---
 st.markdown("---")
-# 語音輸入按鈕
+# 語音輸入
 spoken_text = speech_to_text(language='zh-TW', start_prompt="🎙️ 點此開始錄音 (允許麥克風權限)", stop_prompt="⏹️ 點此停止錄音", just_once=True, key='STT')
-# 文字輸入框
+# 文字輸入
 text_input = st.chat_input("或在此輸入文字狀況...")
 
-# 整合輸入來源
 user_input = spoken_text if spoken_text else text_input
 
 if user_input:
@@ -169,7 +213,6 @@ if user_input:
                 else:
                     clean_text = raw_text
 
-                # 處理即時生成的 UI 與匯出按鈕
                 if "💡 **PRI 評估說明：**" in clean_text:
                     parts = clean_text.split("✅ **轉換完成")
                     reasoning = parts[0].replace("💡 **PRI 評估說明：**", "").strip()
@@ -182,7 +225,6 @@ if user_input:
                     
                     if len(parts) > 1:
                         st.markdown("✅ **轉換完成" + parts[1])
-                        # 加入下載與 Email 按鈕
                         log_content = parts[1].split("```text")[-1].replace("```", "").strip()
                         col1, col2 = st.columns([1, 4])
                         with col1:
