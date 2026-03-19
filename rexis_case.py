@@ -74,7 +74,6 @@ doc.addEventListener('keydown', function(e) {
 st.markdown('<div class="roche-title">REXIS Service AI Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統</div>', unsafe_allow_html=True)
 
-# 📖 加入可折疊的使用說明
 with st.expander("📖 如何使用此系統？ (點擊展開)"):
     st.markdown("""
     **👋 歡迎使用 REXIS AI 助手！本系統將協助您快速產出標準日誌，並自動把關法規風險。**
@@ -82,8 +81,8 @@ with st.expander("📖 如何使用此系統？ (點擊展開)"):
     1. **輸入狀況：** 在下方輸入框打字，或點擊「🎙️」按鈕使用語音輸入。
        * *💡 提示：若案件涉及檢驗數值異常 (ER)，請盡量提供「測試項目」、「原數值」與「重測數值」，以利系統比對。*
     2. **AI 智慧處理：** 系統會自動將口語內容轉為 REXIS 標準 5 大點格式。
-    3. **🛡️ 法規自動判斷：** 系統會背景讀取羅氏原廠文件。若您的案件符合 PRI/PSI 升級標準，會彈出 **紅色大字報** 與 **法規評估說明**，提醒您須另開專屬案件通報。
-    4. **一鍵匯出與快捷鍵：** * 點擊右側按鈕或使用快捷鍵 **`Ctrl + Shift + C`** 即可一鍵複製日誌。
+    3. **🛡️ 法規自動判斷：** 系統會背景讀取羅氏原廠文件。若案件符合 PRI 升級標準，會彈出 **紅色大字報** 與 **法規評估說明**，提醒您須另開專屬案件。
+    4. **一鍵匯出與快捷鍵：** * 使用快捷鍵 **`Ctrl + Shift + C`** 即可一鍵複製 5大點日誌。
        * 可設定預設主管信箱，使用 **`Ctrl + Shift + E`** 快速發送 Email。
        * 使用 **`Ctrl + Shift + S`** 可快速下載日誌 TXT 檔。
     """)
@@ -126,118 +125,27 @@ def load_document_to_gemini(key, file_path):
 
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 6. 系統提示詞 (Prompt) 模板 ---
+# --- 6. 系統提示詞 (Prompt) 模板 (修復版：強制輸出5大點) ---
 SYSTEM_PROMPT = """
 你是一位專業的「IVD 設備商」資深技術與應用支援主管，精通 Roche 的 QARA 規範。
-我會提供一份名為 PRI_Criteria.pdf 的法規文件。請你嚴格依據這份文件中的標準來評估工程師的日誌。
+我會提供一份名為 PRI_Criteria.pdf 的法規文件。請你嚴格依據這份文件中的標準來評估工程師的日誌，並將日誌轉換為標準 5 大點格式。
 
-【PRI / PSI 智能判斷與提問邏輯】
-1. 若為單純硬體故障，直接輸出日誌，不提法規。
-2. 若涉及檢驗異常 (ER)：搜尋 PDF 標準，確認偏差是否達標。資訊不足請提問。
+【PRI / PSI 智能判斷邏輯】
+1. 若為單純硬體故障：不需評估法規，請直接輸出 5 大點日誌。
+2. 若涉及檢驗異常 (ER)：搜尋 PDF 標準，確認偏差是否達標。
+   - 若達標：在最開頭獨立一行輸出 `[PRI_ALERT]`，接著輸出「💡 **PRI 評估說明：**」解釋計算過程。
+   - 若未達標：不需輸出 `[PRI_ALERT]`，但可以輸出「💡 **PRI 評估說明：**」解釋為何未達標。
 
-【目標格式與觸發說明機制】
-1. **法規判斷觸發器**：若達 PRI 升級標準，最開頭輸出 `[PRI_ALERT]`。
-2. **PRI 評估說明**：緊接在後，輸出「💡 **PRI 評估說明：**」，說明參考的 CT 代碼、標準與偏差計算。
-3. 輸出「✅ **轉換完成，可利用快捷鍵或下方按鈕操作：**」
-4. 務必將 5 大標準項目包覆在 ```text 區塊中。
-"""
+【目標輸出格式 (非常重要)】
+請你「務必」嚴格依照以下順序與格式輸出：
 
-# --- 7. 初始化 Session State ---
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "您好！請輸入本次的現場服務筆記，**您也可以點擊下方麥克風使用語音輸入** 🎙️。系統將為您自動格式化並評估法規風險。"}]
-if "chat_session" not in st.session_state:
-    st.session_state.chat_session = None
+(如果有 ER 評估才輸出這段)
+💡 **PRI 評估說明：** [你的評估理由與偏差計算...]
 
-# --- 8. 顯示對話歷史與動態按鈕 ---
-for i, msg in enumerate(st.session_state.messages):
-    if msg["role"] == "assistant" and "💡 **PRI 評估說明：**" in msg["content"]:
-        parts = msg["content"].split("✅ **轉換完成")
-        reasoning = parts[0].replace("💡 **PRI 評估說明：**", "").strip()
-        
-        st.markdown(f"""
-        <div class="pri-container">
-            <div class="pri-alert-header">🚨 【法規升級警告】請開立 PRI/PSI 案件</div>
-            <div class="pri-reasoning-body"><b>💡 系統評估依據：</b><br>{reasoning}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if len(parts) > 1:
-            st.markdown("✅ **轉換完成" + parts[1])
-            
-            log_content = parts[1].split("```text")[-1].replace("```", "").strip()
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                st.download_button("💾 下載 TXT", data=log_content, file_name="REXIS_Service_Log.txt", mime="text/plain", key=f"dl_{i}")
-            with col2:
-                subject = urllib.parse.quote("REXIS Service Log 提報")
-                body = urllib.parse.quote("主管您好，\n\n以下為本次服務日誌：\n\n" + log_content + "\n\nDesigned & Developed by Cholun Chang")
-                mailto_url = f"mailto:{default_email}?subject={subject}&body={body}"
-                st.markdown(f'<a href="{mailto_url}" target="_blank" class="email-btn">📧 以 Email 發送</a>', unsafe_allow_html=True)
-    else:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-# --- 9. 輸入區 (文字 + 語音) ---
-st.markdown("---")
-# 語音輸入
-spoken_text = speech_to_text(language='zh-TW', start_prompt="🎙️ 點此開始錄音 (允許麥克風權限)", stop_prompt="⏹️ 點此停止錄音", just_once=True, key='STT')
-# 文字輸入
-text_input = st.chat_input("或在此輸入文字狀況...")
-
-user_input = spoken_text if spoken_text else text_input
-
-if user_input:
-    with st.chat_message("user"):
-        st.markdown(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
-
-    if st.session_state.chat_session is None:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash') 
-        history_parts = [SYSTEM_PROMPT + "\n\n請了解上述規則，了解請回覆『OK』。"]
-        if pdf_document:
-            history_parts.insert(0, pdf_document)
-        st.session_state.chat_session = model.start_chat(history=[
-            {"role": "user", "parts": history_parts},
-            {"role": "model", "parts": ["OK，我已完全了解。請輸入服務筆記。"]}
-        ])
-
-    with st.chat_message("assistant"):
-        with st.spinner('AI 正在翻閱 PRI 文件進行比對與處理中... ⏳'):
-            try:
-                response = st.session_state.chat_session.send_message(user_input)
-                raw_text = response.text
-                
-                if "[PRI_ALERT]" in raw_text:
-                    clean_text = raw_text.replace("[PRI_ALERT]", "").strip()
-                else:
-                    clean_text = raw_text
-
-                if "💡 **PRI 評估說明：**" in clean_text:
-                    parts = clean_text.split("✅ **轉換完成")
-                    reasoning = parts[0].replace("💡 **PRI 評估說明：**", "").strip()
-                    st.markdown(f"""
-                    <div class="pri-container">
-                        <div class="pri-alert-header">🚨 【法規升級警告】請開立 PRI/PSI 案件</div>
-                        <div class="pri-reasoning-body"><b>💡 系統評估依據：</b><br>{reasoning}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if len(parts) > 1:
-                        st.markdown("✅ **轉換完成" + parts[1])
-                        log_content = parts[1].split("```text")[-1].replace("```", "").strip()
-                        col1, col2 = st.columns([1, 4])
-                        with col1:
-                            st.download_button("💾 下載 TXT", data=log_content, file_name="REXIS_Service_Log.txt", mime="text/plain", key="dl_current")
-                        with col2:
-                            subject = urllib.parse.quote("REXIS Service Log 提報")
-                            body = urllib.parse.quote("主管您好，\n\n以下為本次服務日誌：\n\n" + log_content + "\n\nDesigned & Developed by Cholun Chang")
-                            mailto_url = f"mailto:{default_email}?subject={subject}&body={body}"
-                            st.markdown(f'<a href="{mailto_url}" target="_blank" class="email-btn">📧 以 Email 發送</a>', unsafe_allow_html=True)
-                else:
-                    st.markdown(clean_text)
-                
-                st.session_state.messages.append({"role": "assistant", "content": clean_text})
-                
-            except Exception as e:
-                st.error(f"❌ 發生錯誤，請檢查網路狀態或 API 額度。\n錯誤訊息：{e}")
+✅ **轉換完成，可利用快捷鍵或下方按鈕操作：**
+```text
+* 01_客戶問題描述與報錯代碼：[內容]
+* 02_客戶已經採取哪些行動嘗試解決問題：[內容或 NA]
+* 03_處理過程與觀察測試結果：[內容]
+* 04_本次服務是否結案：[內容]
+* 05_客戶需要配合與改善的事項：[內容或 NA]
