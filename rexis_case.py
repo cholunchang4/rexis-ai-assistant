@@ -6,7 +6,7 @@ import re
 from streamlit_mic_recorder import speech_to_text
 import streamlit.components.v1 as components
 
-# 💡 終極防護：避免網頁顯示器把程式碼切斷，我們將連續三個反引號定義為變數
+# 💡 終極防護：避免網頁顯示器把程式碼切斷
 tick3 = "``" + "`"
 
 # --- 1. 頁面基本設定與 頂級 SaaS 企業風格 (CSS) ---
@@ -177,14 +177,16 @@ def load_document_to_gemini(key, file_path):
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
 # --- 6. 系統提示詞 (Prompt) 模板 ---
-# 使用 f-string 與 tick3 變數，完全隱藏真實的反引號
 SYSTEM_PROMPT = f"""
 你是一位專業的「IVD 設備商」資深技術與應用支援主管，精通 Roche 的 QARA 規範。
 我會提供一份名為 PRI_Criteria.pdf 的法規文件。請你嚴格依據這份文件中的標準來評估工程師的日誌，並將日誌轉換為標準 5 大點格式。
 
-【PRI / PSI 智能判斷邏輯】
-1. 若為單純硬體故障：不需評估法規，請直接輸出日誌。
-2. 若涉及檢驗異常 (ER)：搜尋 PDF 標準，確認偏差是否達標。
+【PRI / PSI 智能判斷邏輯 (非常重要)】
+1. 排除條件 (不屬於 ER，絕對不觸發 PRI)：
+   - 單純硬體/軟體故障（無病患數值異常發出）。
+   - 「校正 (Calibration) 失敗」或「品管 (QC) 失敗/Out」：實務上這些情況發生時，機台會阻擋測試，不會有錯誤的病患報告發出給醫師。因此，這「絕對不屬於」檢驗異常 (ER)。若遇到這類情況，請判斷為未達標，不需啟動 PRI_ALERT，只需產出日誌即可。
+2. 若涉及真實的病患檢驗異常 (ER) (例如：病患檢體測量數值偏差、發出偽陽性/偽陰性報告)：
+   - 搜尋 PDF 標準，確認偏差是否達標。
    - 若達標：最開頭輸出 `[PRI_ALERT]`，並提供「💡 **PRI 評估說明：**」。
    - 若未達標：可提供「💡 **PRI 評估說明：**」解釋為何未達標。
 
@@ -217,12 +219,12 @@ if "chat_session" not in st.session_state:
 
 # --- 8. 顯示對話歷史與動態按鈕 ---
 def render_assistant_message(msg_content, index):
-    hosp_match = re.search(r"\[HOSP_NAME:\s*(.+?)\]", msg_content)
+    hosp_match = re.search(r"\x5bHOSP_NAME:\s*(.+?)\x5d", msg_content)
     hospital_name = ""
     if hosp_match and hosp_match.group(1).strip() != "NA":
         hospital_name = hosp_match.group(1).strip()
     
-    clean_text = re.sub(r"\[HOSP_NAME:\s*.+?\]\n*", "", msg_content)
+    clean_text = re.sub(r"\x5bHOSP_NAME:\s*.+?\x5d\n*", "", msg_content)
     clean_text = clean_text.replace("[PRI_ALERT]", "").strip()
 
     file_suffix = f"_{hospital_name}" if hospital_name else ""
