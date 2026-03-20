@@ -109,7 +109,7 @@ with st.expander("📖 系統操作指南 (點擊展開)"):
     * 🛡️ **法規智能判斷：** 系統背景比對羅氏原廠文件。若觸發 PRI 升級標準，將以卡片提示您另開專案。
     * ⚡ **鍵盤極速操作 (快捷鍵)：**
         * `Ctrl + Shift + C`：一鍵複製產出的 5大點日誌。
-        * `Ctrl + Shift + E`：將日誌快速發送至側邊欄設定的個人備份信箱。
+        * `Ctrl + Shift + E`：一鍵開啟 Gmail 準備寄送備份 (需在側邊欄設定信箱)。
         * `Ctrl + Shift + S`：快速下載 TXT 檔。
     """)
 
@@ -119,7 +119,7 @@ with st.sidebar:
     try: api_key = st.secrets["GEMINI_API_KEY"]
     except KeyError: st.error("⚠️ 尚未設定雲端 API Key！"); st.stop()
     
-    st.markdown("📩 **個人備份設定**")
+    st.markdown("📩 **個人備份設定 (Gmail 專屬)**")
     default_email = st.text_input("接收信箱", value="", placeholder="your.name@roche.com")
     st.markdown("---")
     if st.button("🔄 清除對話紀錄", use_container_width=True):
@@ -138,7 +138,7 @@ def load_document_to_gemini(key, file_path):
     return None
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 6. 系統提示詞 (導入軍規級標籤系統) ---
+# --- 6. 系統提示詞 ---
 SYSTEM_PROMPT = """
 你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範。
 【法規判斷邏輯】
@@ -159,9 +159,8 @@ SYSTEM_PROMPT = """
 * 05_客戶需要配合與改善的事項：[內容或 NA]
 """
 
-# --- 7. 訊息渲染引擎 (精準解析器) ---
+# --- 7. 訊息渲染引擎 ---
 def render_assistant_message(msg_content):
-    # 解析標籤
     hosp_match = re.search(r"\[HOSP_NAME\]\s*(.+)", msg_content)
     hospital_name = hosp_match.group(1).strip() if hosp_match and hosp_match.group(1).strip() != "NA" else ""
     
@@ -171,12 +170,11 @@ def render_assistant_message(msg_content):
     is_alert = "[PRI_ALERT] YES" in msg_content
     
     log_match = re.search(r"\[LOG\]\s*(.+)", msg_content, re.DOTALL)
-    log_content = log_match.group(1).strip() if log_match else msg_content # 若解析失敗則顯示原文字
+    log_content = log_match.group(1).strip() if log_match else msg_content
 
     file_name = f"REXIS_Log_{hospital_name}.txt" if hospital_name else "REXIS_Log.txt"
     subject_title = f"REXIS 服務日誌備份_{hospital_name}" if hospital_name else "REXIS 服務日誌備份"
 
-    # 渲染 UI
     if is_alert:
         st.markdown("""
         <div class="base-card alert-card">
@@ -194,9 +192,16 @@ def render_assistant_message(msg_content):
         """, unsafe_allow_html=True)
 
     if log_content:
+        # 下載 TXT 用的編碼
         encoded_log = urllib.parse.quote(log_content)
         dl_href = f"data:text/plain;charset=utf-8,{encoded_log}"
-        mail_href = f"mailto:{default_email}?subject={urllib.parse.quote(subject_title)}&body={urllib.parse.quote('這是本次的日誌備份：\\n\\n' + log_content)}"
+        
+        # 🔥 核心修復：強制將 Email 的換行符號轉為 \r\n (CRLF) 標準 🔥
+        email_body_text = "這是本次的日誌備份：\r\n\r\n" + log_content.replace('\r\n', '\n').replace('\n', '\r\n')
+        
+        encoded_subject = urllib.parse.quote(subject_title)
+        encoded_body = urllib.parse.quote(email_body_text)
+        gmail_href = f"https://mail.google.com/mail/?view=cm&fs=1&to={default_email}&su={encoded_subject}&body={encoded_body}"
         
         st.markdown(f"""
         <div class="base-card">
@@ -204,7 +209,7 @@ def render_assistant_message(msg_content):
             <div class="action-bar">
                 <button class="action-btn btn-copy" data-clipboard="{encoded_log}">📋 複製日誌</button>
                 <a href="{dl_href}" download="{file_name}" class="action-btn btn-download">💾 下載 TXT</a>
-                <a href="{mail_href}" target="_blank" class="action-btn btn-email">📧 寄給自己</a>
+                <a href="{gmail_href}" target="_blank" class="action-btn btn-email">📧 用 Gmail 寄送</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
