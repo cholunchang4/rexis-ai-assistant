@@ -61,6 +61,11 @@ st.markdown("""
     .warning-card { border-left: 4px solid var(--warning-border); background-color: var(--warning-bg); }
     .warning-title { color: var(--warning-text); font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
     
+    /* 案件分類標籤 (Badge) CSS */
+    .badge-complaint { background-color: #FEE2E2; color: #B91C1C; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; display: inline-block; margin-bottom: 12px; border: 1px solid #FCA5A5;}
+    .badge-inquiry { background-color: #DCFCE7; color: #047857; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; display: inline-block; margin-bottom: 12px; border: 1px solid #86EFAC;}
+    .badge-logistics { background-color: #FFEDD5; color: #B45309; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; display: inline-block; margin-bottom: 12px; border: 1px solid #FDBA74;}
+    
     .action-bar { display: flex; gap: 12px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
     .action-btn { background-color: transparent; color: var(--text-main) !important; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
     .action-btn:hover { background-color: var(--info-bg); border-color: var(--primary-color); color: var(--primary-color) !important; }
@@ -120,7 +125,7 @@ with st.expander("📖 系統操作指南 (點擊展開)"):
     * 🛡️ **合規檢查：** 系統會自動檢查您是否遺漏了**產品批號 (Lot)、儀器序號 (SN) 或軟體版本**，並在需要時主動提醒您補齊。
     * 🚨 **高風險攔截：** 若提及資安威脅、仿冒品或資料隱私請求，系統會立即警告並建議通報窗口。
     * ⚡ **鍵盤極速操作 (快捷鍵)：**
-        * `Ctrl + Shift + C`：一鍵複製產出的 5大點日誌。
+        * `Ctrl + Shift + C`：一鍵複製產出的日誌。
         * `Ctrl + Shift + E`：一鍵開啟 Gmail 準備寄送備份 (需在側邊欄設定信箱)。
         * `Ctrl + Shift + S`：快速下載 TXT 檔。
     """)
@@ -150,20 +155,21 @@ def load_document_to_gemini(key, file_path):
     return None
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 6. 系統提示詞 (包含第4點結案原因強制規範) ---
+# --- 6. 系統提示詞 (包含 Inquiry 免責聲明) ---
 SYSTEM_PROMPT = """
 你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範 (MQMS-PM-GSP-04 V11)。
 請嚴格評估工程師的輸入內容，確保合規，並輸出標準格式。
 
 【案件分類邏輯】
 1. Inquiry (一般詢問)：單純要資訊、設定問題，無產品故障指控。
+   - 特別注意：若客戶索取紙本 eIFU，需在 7 天內免費提供。
 2. Logistics Claim (物流客訴)：運輸造成的損壞 (外箱破損、寄錯地址)。
 3. Complaint (客訴)：硬體故障、軟體Bug、包裝缺件、試劑問題等所有產品缺陷。
 
 【強制合規與高風險攔截】
 - 若涉及資安/駭客/中毒，觸發 [CYBERSECURITY]
 - 若涉及仿冒/標籤異常/非授權供應商，觸發 [COUNTERFEIT]
-- 若客戶要求刪除個資/資料，觸發 [DSR_PRIVACY]
+- 若客戶要求刪除個資/資料，觸發 [DSR_PRIVACY] (需通報 DPO)
 - 若涉及重大傳染病(如伊波拉)且設備故障，觸發 [pPHT_ALERT] (需2天內通報)
 - 自動隱藏/打碼所有出現的病患真實姓名與身分證字號。
 
@@ -193,16 +199,18 @@ SYSTEM_PROMPT = """
 
 (只有當 [ASK_USER] 為 NA 時，才輸出以下 [LOG] 區塊)
 [LOG]
+如果 [CLASSIFICATION] 是 Complaint 或 Logistics Claim，請務必使用以下 5 大點格式：
 * 01_客戶問題描述與報錯代碼：[內容]
 * 02_客戶已經採取哪些行動嘗試解決問題：[內容或 NA]
 * 03_處理過程與觀察測試結果：[內容]
 * 04_本次服務是否結案：[不可僅回答是/否。必須依據處理過程，明確寫出「可結案的客觀原因」(例如：QC Pass、校正成功、功能恢復正常等)，並說明客戶同意結案]
 * 05_客戶需要配合與改善的事項：[內容或 NA]
+
+如果 [CLASSIFICATION] 是 Inquiry，請不要使用 5 大點格式。請直接用流暢的段落文字總結工程師的處理過程，並且在最後一段「務必」加上結案說明，格式如下：「因 [填入客觀結案原因，例如：說明完畢、測試正常等]，本次的詢問確認無產品表現/儀器設計或其他品質問題疑慮，客戶同意結案。」
 """
 
 # --- 7. 訊息渲染引擎 ---
 def render_assistant_message(msg_content):
-    # 解析各類標籤
     hosp_match = re.search(r"\[HOSP_NAME\]\s*(.+)", msg_content)
     hospital_name = hosp_match.group(1).strip() if hosp_match and hosp_match.group(1).strip() != "NA" else ""
     
@@ -226,7 +234,6 @@ def render_assistant_message(msg_content):
     file_name = f"REXIS_Log_{hospital_name}.txt" if hospital_name else "REXIS_Log.txt"
     subject_title = f"REXIS 服務日誌備份_{hospital_name}" if hospital_name else "REXIS 服務日誌備份"
 
-    # 若 AI 有問題要問使用者 (例如缺 SN/Lot)
     if ask_user:
         st.markdown(f"""
         <div class="base-card warning-card">
@@ -234,9 +241,8 @@ def render_assistant_message(msg_content):
             <div class="info-body">{ask_user}</div>
         </div>
         """, unsafe_allow_html=True)
-        return  # 若有缺件詢問，就先不渲染後面的內容
+        return 
 
-    # 渲染高風險合規警告 
     if compliance_warnings:
         st.markdown(f"""
         <div class="base-card alert-card">
@@ -245,7 +251,6 @@ def render_assistant_message(msg_content):
         </div>
         """, unsafe_allow_html=True)
 
-    # 渲染 PRI 警告
     if is_alert:
         st.markdown("""
         <div class="base-card alert-card">
@@ -254,17 +259,23 @@ def render_assistant_message(msg_content):
         </div>
         """, unsafe_allow_html=True)
 
-    # 渲染系統評估依據
     if reasoning:
         st.markdown(f"""
         <div class="base-card info-card">
-            <div class="info-title">💡 系統評估依據 [{classification}]</div>
+            <div class="info-title">💡 系統評估依據</div>
             <div class="info-body">{reasoning}</div>
         </div>
         """, unsafe_allow_html=True)
 
-    # 渲染最終日誌
     if log_content:
+        badge_html = ""
+        if "Complaint" in classification:
+            badge_html = '<div class="badge-complaint">🔴 客訴 (Complaint)</div>'
+        elif "Inquiry" in classification:
+            badge_html = '<div class="badge-inquiry">🟢 一般詢問 (Inquiry)</div>'
+        elif "Logistics" in classification:
+            badge_html = '<div class="badge-logistics">🟠 物流客訴 (Logistics Claim)</div>'
+
         encoded_log = urllib.parse.quote(log_content)
         dl_href = f"data:text/plain;charset=utf-8,{encoded_log}"
         
@@ -275,6 +286,7 @@ def render_assistant_message(msg_content):
         
         st.markdown(f"""
         <div class="base-card">
+            {badge_html}
             <div style="white-space: pre-wrap; font-family: inherit; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0;">{log_content}</div>
             <div class="action-bar">
                 <button class="action-btn btn-copy" data-clipboard="{encoded_log}">📋 複製日誌</button>
