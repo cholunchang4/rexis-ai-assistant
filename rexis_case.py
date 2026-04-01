@@ -6,6 +6,9 @@ import re
 from streamlit_mic_recorder import speech_to_text
 import streamlit.components.v1 as components
 
+# 💡 終極防護：避免網頁顯示器把程式碼切斷
+tick3 = "``" + "`"
+
 # --- 1. 頁面基本設定與 SaaS 風格 CSS ---
 st.set_page_config(page_title="REXIS Service Assistant", page_icon="🟦", layout="centered")
 
@@ -23,6 +26,9 @@ st.markdown("""
         --info-bg: #F8FAFC;
         --info-border: #3B82F6;
         --info-text: #1D4ED8;
+        --warning-bg: #FFFBEB;
+        --warning-border: #F59E0B;
+        --warning-text: #B45309;
     }
     @media (prefers-color-scheme: dark) {
         :root {
@@ -35,13 +41,16 @@ st.markdown("""
             --alert-text: #FCA5A5;
             --info-bg: #0F172A;
             --info-text: #93C5FD;
+            --warning-bg: #451A03;
+            --warning-border: #F59E0B;
+            --warning-text: #FCD34D;
         }
     }
     
     .stApp { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .roche-title { color: var(--primary-color); font-weight: 800; font-size: 2.2rem; margin-bottom: 0px; letter-spacing: -0.5px;}
     .title-divider { height: 3px; width: 40px; background-color: var(--primary-color); border-radius: 2px; margin-top: 8px; margin-bottom: 12px; }
-    .roche-subtitle { color: var(--text-muted); font-size: 1rem; font-weight: 500; margin-bottom: 20px; }
+    .roche-subtitle { color: var(--text-muted); font-size: 1rem; font-weight: 500; margin-bottom: 25px; }
     
     .base-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
     .alert-card { border-left: 4px solid var(--alert-border); background-color: var(--alert-bg); }
@@ -49,6 +58,8 @@ st.markdown("""
     .info-card { border-left: 4px solid var(--info-border); background-color: var(--info-bg); }
     .info-title { color: var(--info-text); font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
     .info-body { color: var(--text-main); font-size: 0.95rem; line-height: 1.6; }
+    .warning-card { border-left: 4px solid var(--warning-border); background-color: var(--warning-bg); }
+    .warning-title { color: var(--warning-text); font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
     
     .action-bar { display: flex; gap: 12px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
     .action-btn { background-color: transparent; color: var(--text-main) !important; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
@@ -92,7 +103,7 @@ doc.addEventListener('keydown', function(e) {
 
 # --- 3. 初始化 Session State ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "您好！請輸入現場狀況，推薦使用下方麥克風 🎙️ 語音輸入。系統將自動整理 5 大點並把關法規風險。"}]
+    st.session_state.messages = [{"role": "assistant", "content": "您好！請輸入現場狀況，推薦使用下方麥克風 🎙️ 語音輸入。\n\n💡 系統將會協助您檢查**合規必填資訊**，並自動評估法規風險。"}]
 if "chat_session" not in st.session_state: st.session_state.chat_session = None
 if "mic_key" not in st.session_state: st.session_state.mic_key = 0 
 
@@ -106,7 +117,8 @@ with st.expander("📖 系統操作指南 (點擊展開)"):
     **👋 歡迎！本系統將協助您以最高效率產出標準日誌，並自動把關法規風險。**
     
     * 🎙️ **語音/文字輸入：** 若案件涉及檢驗數值異常 (ER)，請務必提及「測試項目」、「原數值」與「重測數值」。提及「醫院名稱」將自動為檔案命名。
-    * 🛡️ **法規智能判斷：** 系統背景比對羅氏原廠文件。若觸發 PRI 升級標準，將以卡片提示您另開專案。
+    * 🛡️ **合規檢查：** 系統會自動檢查您是否遺漏了**產品批號 (Lot)、儀器序號 (SN) 或軟體版本**，並在需要時主動提醒您補齊。
+    * 🚨 **高風險攔截：** 若提及資安威脅、仿冒品或資料隱私請求，系統會立即警告並建議通報窗口。
     * ⚡ **鍵盤極速操作 (快捷鍵)：**
         * `Ctrl + Shift + C`：一鍵複製產出的 5大點日誌。
         * `Ctrl + Shift + E`：一鍵開啟 Gmail 準備寄送備份 (需在側邊欄設定信箱)。
@@ -138,67 +150,125 @@ def load_document_to_gemini(key, file_path):
     return None
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 6. 系統提示詞 ---
+# --- 6. 系統提示詞 (包含第4點結案原因強制規範) ---
 SYSTEM_PROMPT = """
-你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範。
-【法規判斷邏輯】
-1. 排除條件：單純硬體故障、「校正(Calibration)/QC 失敗」(機台會阻擋測試，不會發出病患報告，故絕不屬於 ER，無需 PRI)。
-2. 真實 ER：確認偏差是否達標。
+你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範 (MQMS-PM-GSP-04 V11)。
+請嚴格評估工程師的輸入內容，確保合規，並輸出標準格式。
+
+【案件分類邏輯】
+1. Inquiry (一般詢問)：單純要資訊、設定問題，無產品故障指控。
+2. Logistics Claim (物流客訴)：運輸造成的損壞 (外箱破損、寄錯地址)。
+3. Complaint (客訴)：硬體故障、軟體Bug、包裝缺件、試劑問題等所有產品缺陷。
+
+【強制合規與高風險攔截】
+- 若涉及資安/駭客/中毒，觸發 [CYBERSECURITY]
+- 若涉及仿冒/標籤異常/非授權供應商，觸發 [COUNTERFEIT]
+- 若客戶要求刪除個資/資料，觸發 [DSR_PRIVACY]
+- 若涉及重大傳染病(如伊波拉)且設備故障，觸發 [pPHT_ALERT] (需2天內通報)
+- 自動隱藏/打碼所有出現的病患真實姓名與身分證字號。
+
+【PRI / PSI 判斷邏輯】
+- 單純硬體故障、校正(Calibration)/QC 失敗：不屬於 ER，無需 PRI。
+- 真實 ER (病患數值異常)：確認偏差是否達標。
+
+【處理流程 - 重要！】
+步驟 1：檢查資訊是否齊全。一份合格的日誌「必須」包含以下至少一項追蹤資訊：
+  - 儀器序號 (SN)
+  - 產品批號 (Lot)
+  - 軟體版本 (Software version)
+  如果工程師的輸入中「完全沒有」提及上述任何一項，請「不要」產出 [LOG]！
+  你必須先使用 [ASK_USER] 標籤來詢問工程師：「請問本次案件的儀器序號(SN)或產品批號(Lot)為何？請補齊後為您產出完整日誌。」
+
+步驟 2：當資訊齊全時，才產出完整的標籤格式。
 
 【強制輸出格式】
 請嚴格使用以下標籤輸出，不要加上多餘的問候語。
 
+[CLASSIFICATION] (填入 Inquiry, Logistics Claim, 或 Complaint)
 [HOSP_NAME] 醫院名稱 (若無請填 NA)
-[REASONING] 你的法規評估理由 (若是單純硬體故障不需評估，請填 NA)
+[COMPLIANCE_WARNINGS] (若觸發高風險攔截，請列具體警告；若無填 NA)
+[REASONING] 你的 PRI/PSI 評估理由 (若不需評估填 NA)
 [PRI_ALERT] YES 或 NO
+[ASK_USER] (若遺漏 SN/Lot/SW，請填入你要詢問工程師的話；若資訊齊全，請填 NA)
+
+(只有當 [ASK_USER] 為 NA 時，才輸出以下 [LOG] 區塊)
 [LOG]
 * 01_客戶問題描述與報錯代碼：[內容]
 * 02_客戶已經採取哪些行動嘗試解決問題：[內容或 NA]
 * 03_處理過程與觀察測試結果：[內容]
-* 04_本次服務是否結案：[內容]
+* 04_本次服務是否結案：[不可僅回答是/否。必須依據處理過程，明確寫出「可結案的客觀原因」(例如：QC Pass、校正成功、功能恢復正常等)，並說明客戶同意結案]
 * 05_客戶需要配合與改善的事項：[內容或 NA]
 """
 
 # --- 7. 訊息渲染引擎 ---
 def render_assistant_message(msg_content):
+    # 解析各類標籤
     hosp_match = re.search(r"\[HOSP_NAME\]\s*(.+)", msg_content)
     hospital_name = hosp_match.group(1).strip() if hosp_match and hosp_match.group(1).strip() != "NA" else ""
+    
+    class_match = re.search(r"\[CLASSIFICATION\]\s*(.+)", msg_content)
+    classification = class_match.group(1).strip() if class_match and class_match.group(1).strip() != "NA" else ""
+    
+    warnings_match = re.search(r"\[COMPLIANCE_WARNINGS\]\s*(.+)", msg_content)
+    compliance_warnings = warnings_match.group(1).strip() if warnings_match and warnings_match.group(1).strip() != "NA" else ""
     
     reasoning_match = re.search(r"\[REASONING\]\s*(.+)", msg_content)
     reasoning = reasoning_match.group(1).strip() if reasoning_match and reasoning_match.group(1).strip() != "NA" else ""
     
+    ask_match = re.search(r"\[ASK_USER\]\s*(.+)", msg_content)
+    ask_user = ask_match.group(1).strip() if ask_match and ask_match.group(1).strip() != "NA" else ""
+    
     is_alert = "[PRI_ALERT] YES" in msg_content
     
     log_match = re.search(r"\[LOG\]\s*(.+)", msg_content, re.DOTALL)
-    log_content = log_match.group(1).strip() if log_match else msg_content
+    log_content = log_match.group(1).strip() if log_match else ""
 
     file_name = f"REXIS_Log_{hospital_name}.txt" if hospital_name else "REXIS_Log.txt"
     subject_title = f"REXIS 服務日誌備份_{hospital_name}" if hospital_name else "REXIS 服務日誌備份"
 
-    if is_alert:
-        st.markdown("""
+    # 若 AI 有問題要問使用者 (例如缺 SN/Lot)
+    if ask_user:
+        st.markdown(f"""
+        <div class="base-card warning-card">
+            <div class="warning-title">⚠️ 系統合規提醒</div>
+            <div class="info-body">{ask_user}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        return  # 若有缺件詢問，就先不渲染後面的內容
+
+    # 渲染高風險合規警告 
+    if compliance_warnings:
+        st.markdown(f"""
         <div class="base-card alert-card">
-            <div class="alert-title">🚨 法規升級警告</div>
-            <div class="info-body">依據法規標準，請勿將此 Log 存入一般案件，請立即<b>重新開立專屬的 PRI/PSI 案件</b>！</div>
+            <div class="alert-title">🚨 高風險事件通報提醒</div>
+            <div class="info-body"><b>系統偵測到特殊事件：</b><br>{compliance_warnings}</div>
         </div>
         """, unsafe_allow_html=True)
 
+    # 渲染 PRI 警告
+    if is_alert:
+        st.markdown("""
+        <div class="base-card alert-card">
+            <div class="alert-title">🚨 法規升級警告 (PRI/PSI)</div>
+            <div class="info-body">依據法規標準，此案涉及檢驗異常 (ER) 且達標，請立即<b>重新開立專屬的 PRI/PSI 案件</b>！</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 渲染系統評估依據
     if reasoning:
         st.markdown(f"""
         <div class="base-card info-card">
-            <div class="info-title">💡 系統評估依據</div>
+            <div class="info-title">💡 系統評估依據 [{classification}]</div>
             <div class="info-body">{reasoning}</div>
         </div>
         """, unsafe_allow_html=True)
 
+    # 渲染最終日誌
     if log_content:
-        # 下載 TXT 用的編碼
         encoded_log = urllib.parse.quote(log_content)
         dl_href = f"data:text/plain;charset=utf-8,{encoded_log}"
         
-        # 🔥 核心修復：強制將 Email 的換行符號轉為 \r\n (CRLF) 標準 🔥
         email_body_text = "這是本次的日誌備份：\r\n\r\n" + log_content.replace('\r\n', '\n').replace('\n', '\r\n')
-        
         encoded_subject = urllib.parse.quote(subject_title)
         encoded_body = urllib.parse.quote(email_body_text)
         gmail_href = f"https://mail.google.com/mail/?view=cm&fs=1&to={default_email}&su={encoded_subject}&body={encoded_body}"
@@ -242,7 +312,7 @@ if user_input:
         if pdf_document: history_parts.insert(0, pdf_document)
         st.session_state.chat_session = model.start_chat(history=[
             {"role": "user", "parts": history_parts},
-            {"role": "model", "parts": ["OK，我已完全了解。我會嚴格使用標籤格式輸出。"]}
+            {"role": "model", "parts": ["OK，我已完全了解。我會嚴格使用標籤格式輸出，並在必要時主動詢問缺少資訊。"]}
         ])
 
     with st.chat_message("assistant"):
