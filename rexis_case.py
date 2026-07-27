@@ -320,7 +320,7 @@ if user_input:
 
     if st.session_state.chat_session is None:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-flash') 
+        model = genai.GenerativeModel('gemini-3.6-flash') 
         history_parts = [SYSTEM_PROMPT]
         if pdf_document: history_parts.insert(0, pdf_document)
         st.session_state.chat_session = model.start_chat(history=[
