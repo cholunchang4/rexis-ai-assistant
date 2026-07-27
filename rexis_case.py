@@ -136,6 +136,10 @@ with st.sidebar:
     try: api_key = st.secrets["GEMINI_API_KEY"]
     except KeyError: st.error("⚠️ 尚未設定雲端 API Key！"); st.stop()
     
+    # 🔥 新增：動態語言切換按鈕
+    output_lang = st.radio("🌐 輸出語言 / Output Language", ["繁體中文", "English"])
+    st.markdown("---")
+    
     st.markdown("📩 **個人備份設定 (Gmail 專屬)**")
     default_email = st.text_input("接收信箱", value="", placeholder="your.name@roche.com")
     st.markdown("---")
@@ -155,8 +159,7 @@ def load_document_to_gemini(key, file_path):
     return None
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 6. 系統提示詞 (🔥 核心修復：強制寫入追蹤資訊) ---
-# [cite: 166]
+# --- 6. 系統提示詞 ---
 SYSTEM_PROMPT = """
 你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範 (MQMS-PM-GSP-04 V11)。
 請嚴格評估使用者的輸入內容，確保合規，並輸出標準格式。
@@ -304,7 +307,9 @@ for msg in st.session_state.messages:
         else:
             render_assistant_message(msg["content"])
     else:
-        with st.chat_message("user"): st.markdown(msg["content"])
+        # UI 隱藏動態語言指令，保持對話畫面乾淨
+        display_text = msg["content"].split("\n\n[CRITICAL INSTRUCTION:")[0]
+        with st.chat_message("user"): st.markdown(display_text)
 
 # --- 8. 輸入區 ---
 st.markdown("---")
@@ -315,8 +320,14 @@ text_input = st.chat_input("或在此輸入文字狀況...")
 user_input = spoken_text if spoken_text else text_input
 
 if user_input:
+    # 🔥 動態綁定語言指令 (偷偷塞給 AI 的最高權限指令)
+    if output_lang == "English":
+        ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: You MUST generate your ENTIRE response, including all headers, bullet points, logs, and explanations, strictly in English.]"
+    else:
+        ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: 請務必使用「繁體中文」輸出所有內容、標題與日誌。]"
+
     with st.chat_message("user"): st.markdown(user_input)
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "user", "content": ai_payload})
 
     if st.session_state.chat_session is None:
         genai.configure(api_key=api_key)
@@ -331,7 +342,8 @@ if user_input:
     with st.chat_message("assistant"):
         status = st.status("🧠 系統分析中...", expanded=True)
         try:
-            response = st.session_state.chat_session.send_message(user_input)
+            # 發送夾帶語言指令的訊息給 AI
+            response = st.session_state.chat_session.send_message(ai_payload)
             status.update(label="✅ 處理完成！", state="complete", expanded=False)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun() 
