@@ -73,7 +73,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. 注入 JavaScript (剪貼簿與快捷鍵) ---
+# --- 2. 注入 JavaScript (剪貼簿與快捷鍵 - 雙語提示) ---
 components.html("""
 <script>
 const doc = window.parent.document;
@@ -92,8 +92,8 @@ doc.addEventListener('click', function(e) {
     if (e.target && e.target.closest('.btn-copy')) {
         let btn = e.target.closest('.btn-copy'); let textToCopy = decodeURIComponent(btn.getAttribute('data-clipboard'));
         if (window.parent.navigator.clipboard) {
-            window.parent.navigator.clipboard.writeText(textToCopy).then(() => showToast('✅ 日誌已複製到剪貼簿')).catch(() => { fallbackCopyTextToClipboard(textToCopy); showToast('✅ 日誌已複製'); });
-        } else { fallbackCopyTextToClipboard(textToCopy); showToast('✅ 日誌已複製'); }
+            window.parent.navigator.clipboard.writeText(textToCopy).then(() => showToast('✅ Copied / 已複製')).catch(() => { fallbackCopyTextToClipboard(textToCopy); showToast('✅ Copied / 已複製'); });
+        } else { fallbackCopyTextToClipboard(textToCopy); showToast('✅ Copied / 已複製'); }
     }
 });
 doc.addEventListener('keydown', function(e) {
@@ -106,49 +106,102 @@ doc.addEventListener('keydown', function(e) {
 </script>
 """, height=0, width=0)
 
-# --- 3. 初始化 Session State ---
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "您好！請輸入現場狀況，推薦使用下方麥克風 🎙️ 語音輸入。\n\n💡 系統將會協助您檢查**合規必填資訊**，並自動評估法規風險。"}]
-if "chat_session" not in st.session_state: st.session_state.chat_session = None
-if "mic_key" not in st.session_state: st.session_state.mic_key = 0 
+# --- 3. 雙語 UI 字典 (i18n) ---
+ui_text = {
+    "TW": {
+        "title_sub": "自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統",
+        "guide_title": "📖 系統操作指南 (點擊展開)",
+        "guide_content": "**👋 歡迎！本系統將協助您以最高效率產出標準日誌，並自動把關法規風險。**\n\n* 🎙️ **語音/文字輸入：** 若案件涉及檢驗數值異常 (ER)，請務必提及「測試項目」、「原數值」與「重測數值」。提及「醫院名稱」將自動為檔案命名。\n* 🛡️ **合規檢查：** 系統會自動檢查您是否遺漏了**產品批號 (Lot)、儀器序號 (SN) 或軟體版本**，並在需要時主動提醒您補齊。\n* 🚨 **高風險攔截：** 若提及資安威脅、仿冒品或資料隱私請求，系統會立即警告並建議通報窗口。\n* ⚡ **鍵盤快捷鍵：** `Ctrl+Shift+C` (複製日誌) / `Ctrl+Shift+E` (Gmail 寄送) / `Ctrl+Shift+S` (下載 TXT)",
+        "sidebar_settings": "⚙️ 系統設定",
+        "sidebar_email": "📩 **個人備份設定 (Gmail 專屬)**",
+        "sidebar_email_ph": "your.name@roche.com",
+        "sidebar_clear": "🔄 清除對話紀錄",
+        "msg_welcome": "您好！請輸入現場狀況，推薦使用下方麥克風 🎙️ 語音輸入。\n\n💡 系統將會協助您檢查**合規必填資訊**，並自動評估法規風險。",
+        "mic_start": "🎙️ 點此開始錄音",
+        "mic_stop": "⏹️ 停止錄音並送出",
+        "chat_ph": "或在此輸入文字狀況...",
+        "status_analyzing": "🧠 系統分析中...",
+        "status_done": "✅ 處理完成！",
+        "status_err": "❌ 發生錯誤",
+        "err_net": "請檢查網路狀態或 API。",
+        "badge_comp": "🔴 客訴 (Complaint)",
+        "badge_inq": "🟢 一般詢問 (Inquiry)",
+        "badge_log": "🟠 物流客訴 (Logistics Claim)",
+        "btn_copy": "📋 複製日誌",
+        "btn_dl": "💾 下載 TXT",
+        "btn_email": "📧 用 Gmail 寄送",
+        "warn_req": "⚠️ 系統合規提醒",
+        "warn_high": "🚨 高風險事件通報提醒",
+        "warn_high_sub": "<b>系統偵測到特殊事件：</b><br>",
+        "warn_pri": "🚨 法規升級警告 (PRI/PSI)",
+        "warn_pri_sub": "依據法規標準，此案涉及檢驗異常 (ER) 且達標，請立即<b>重新開立專屬的 PRI/PSI 案件</b>！",
+        "info_reason": "💡 系統評估依據"
+    },
+    "EN": {
+        "title_sub": "Automated Service Log Conversion & PRI/PSI Compliance Screening System",
+        "guide_title": "📖 System User Guide (Click to expand)",
+        "guide_content": "**👋 Welcome! This system helps you generate standard logs efficiently while automatically checking for compliance risks.**\n\n* 🎙️ **Input:** If the case involves Abnormal Test Results (ER), mention the 'Test Parameter', 'Original Result', and 'Retest Result'. Mentioning 'Hospital Name' will auto-name your file.\n* 🛡️ **Compliance Check:** The system verifies if **Lot Number, Serial Number (SN), or Software Version** are missing and prompts you to provide them.\n* 🚨 **High-Risk Intercept:** Warns and advises on Cybersecurity threats, Counterfeit products, or Data Privacy requests.\n* ⚡ **Keyboard Shortcuts:** `Ctrl+Shift+C` (Copy Log) / `Ctrl+Shift+E` (Send via Gmail) / `Ctrl+Shift+S` (Download TXT)",
+        "sidebar_settings": "⚙️ Settings",
+        "sidebar_email": "📩 **Personal Backup (Gmail only)**",
+        "sidebar_email_ph": "your.name@roche.com",
+        "sidebar_clear": "🔄 Clear Chat History",
+        "msg_welcome": "Hello! Please describe the on-site situation. Microphone 🎙️ input is recommended.\n\n💡 The system will assist in checking **mandatory compliance information** and assess regulatory risks.",
+        "mic_start": "🎙️ Click to Start Recording",
+        "mic_stop": "⏹️ Stop Recording & Submit",
+        "chat_ph": "Or type the situation here...",
+        "status_analyzing": "🧠 Analyzing...",
+        "status_done": "✅ Processing Complete!",
+        "status_err": "❌ Error Occurred",
+        "err_net": "Please check your network or API status.",
+        "badge_comp": "🔴 Complaint",
+        "badge_inq": "🟢 Inquiry",
+        "badge_log": "🟠 Logistics Claim",
+        "btn_copy": "📋 Copy Log",
+        "btn_dl": "💾 Download TXT",
+        "btn_email": "📧 Send via Gmail",
+        "warn_req": "⚠️ Compliance Reminder",
+        "warn_high": "🚨 High-Risk Event Alert",
+        "warn_high_sub": "<b>Special event detected:</b><br>",
+        "warn_pri": "🚨 Regulatory Escalation (PRI/PSI)",
+        "warn_pri_sub": "Based on regulatory standards, this case involves an Abnormal Test Result (ER) that meets criteria. Please <b>open a dedicated PRI/PSI case immediately</b>!",
+        "info_reason": "💡 System Reasoning"
+    }
+}
 
-# --- 4. 標題與操作說明 ---
-st.markdown('<div class="roche-title">REXIS Assistant</div>', unsafe_allow_html=True)
-st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
-st.markdown('<div class="roche-subtitle">自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統</div>', unsafe_allow_html=True)
-
-with st.expander("📖 系統操作指南 (點擊展開)"):
-    st.markdown("""
-    **👋 歡迎！本系統將協助您以最高效率產出標準日誌，並自動把關法規風險。**
-    
-    * 🎙️ **語音/文字輸入：** 若案件涉及檢驗數值異常 (ER)，請務必提及「測試項目」、「原數值」與「重測數值」。提及「醫院名稱」將自動為檔案命名。
-    * 🛡️ **合規檢查：** 系統會自動檢查您是否遺漏了**產品批號 (Lot)、儀器序號 (SN) 或軟體版本**，並在需要時主動提醒您補齊。補齊後會自動寫入日誌中。
-    * 🚨 **高風險攔截：** 若提及資安威脅、仿冒品或資料隱私請求，系統會立即警告並建議通報窗口。
-    * ⚡ **鍵盤極速操作 (快捷鍵)：**
-        * `Ctrl + Shift + C`：一鍵複製產出的日誌。
-        * `Ctrl + Shift + E`：一鍵開啟 Gmail 準備寄送備份 (需在側邊欄設定信箱)。
-        * `Ctrl + Shift + S`：快速下載 TXT 檔。
-    """)
-
-# --- 5. 側邊欄 ---
+# --- 4. 側邊欄 (設定語言與環境變數) ---
 with st.sidebar:
-    st.markdown("<h3 style='color: var(--primary-color); font-weight:700;'>⚙️ Settings</h3>", unsafe_allow_html=True)
+    output_lang = st.radio("🌐 UI Language / 介面語言", ["繁體中文", "English"])
+    lang = "EN" if output_lang == "English" else "TW"
+    t = ui_text[lang] # 載入對應語言字典
+    
+    st.markdown(f"<h3 style='color: var(--primary-color); font-weight:700;'>{t['sidebar_settings']}</h3>", unsafe_allow_html=True)
     try: api_key = st.secrets["GEMINI_API_KEY"]
-    except KeyError: st.error("⚠️ 尚未設定雲端 API Key！"); st.stop()
+    except KeyError: st.error("⚠️ API Key is missing!"); st.stop()
     
-    # 🔥 新增：動態語言切換按鈕
-    output_lang = st.radio("🌐 輸出語言 / Output Language", ["繁體中文", "English"])
     st.markdown("---")
-    
-    st.markdown("📩 **個人備份設定 (Gmail 專屬)**")
-    default_email = st.text_input("接收信箱", value="", placeholder="your.name@roche.com")
+    st.markdown(t["sidebar_email"])
+    default_email = st.text_input("Email Address", value="", placeholder=t["sidebar_email_ph"])
     st.markdown("---")
-    if st.button("🔄 清除對話紀錄", use_container_width=True):
-        st.session_state.messages = [{"role": "assistant", "content": "對話已清除！請輸入現場狀況。"}]
+    if st.button(t["sidebar_clear"], use_container_width=True):
+        st.session_state.messages = [{"role": "assistant", "content": "WELCOME_MSG"}]
         st.session_state.chat_session = None
         st.session_state.mic_key += 1 
         st.rerun()
     st.markdown('<div class="developer-signature">Designed by <b>Cholun Chang</b></div>', unsafe_allow_html=True)
+
+# --- 5. 初始化 Session State ---
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "WELCOME_MSG"}]
+if "chat_session" not in st.session_state: st.session_state.chat_session = None
+if "mic_key" not in st.session_state: st.session_state.mic_key = 0 
+
+# --- 6. 標題與操作說明 ---
+st.markdown('<div class="roche-title">REXIS Assistant</div>', unsafe_allow_html=True)
+st.markdown('<div class="title-divider"></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="roche-subtitle">{t["title_sub"]}</div>', unsafe_allow_html=True)
+
+with st.expander(t["guide_title"]):
+    st.markdown(t["guide_content"])
 
 @st.cache_resource
 def load_document_to_gemini(key, file_path):
@@ -159,7 +212,7 @@ def load_document_to_gemini(key, file_path):
     return None
 pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 6. 系統提示詞 ---
+# --- 7. 系統提示詞 ---
 SYSTEM_PROMPT = """
 你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範 (MQMS-PM-GSP-04 V11)。
 請嚴格評估使用者的輸入內容，確保合規，並輸出標準格式。
@@ -213,8 +266,8 @@ SYSTEM_PROMPT = """
 如果 [CLASSIFICATION] 是 Inquiry，請不要使用 5 大點格式。請直接用流暢的段落文字總結使用者的處理過程。段落的開頭必須明確列出收集到的追蹤資訊(SN/Lot)。段落的結尾「務必」加上結案說明，格式如下：「因 [填入客觀結案原因，例如：說明完畢、測試正常等]，本次的詢問確認無產品表現/儀器設計或其他品質問題疑慮，客戶同意結案。」
 """
 
-# --- 7. 訊息渲染引擎 ---
-def render_assistant_message(msg_content):
+# --- 8. 訊息渲染引擎 ---
+def render_assistant_message(msg_content, t_dict):
     hosp_match = re.search(r"\[HOSP_NAME\]\s*(.+)", msg_content)
     hospital_name = hosp_match.group(1).strip() if hosp_match and hosp_match.group(1).strip() != "NA" else ""
     
@@ -236,12 +289,12 @@ def render_assistant_message(msg_content):
     log_content = log_match.group(1).strip() if log_match else ""
 
     file_name = f"REXIS_Log_{hospital_name}.txt" if hospital_name else "REXIS_Log.txt"
-    subject_title = f"REXIS 服務日誌備份_{hospital_name}" if hospital_name else "REXIS 服務日誌備份"
+    subject_title = f"REXIS Backup_{hospital_name}" if hospital_name else "REXIS Backup"
 
     if ask_user:
         st.markdown(f"""
         <div class="base-card warning-card">
-            <div class="warning-title">⚠️ 系統合規提醒</div>
+            <div class="warning-title">{t_dict['warn_req']}</div>
             <div class="info-body">{ask_user}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -250,23 +303,23 @@ def render_assistant_message(msg_content):
     if compliance_warnings:
         st.markdown(f"""
         <div class="base-card alert-card">
-            <div class="alert-title">🚨 高風險事件通報提醒</div>
-            <div class="info-body"><b>系統偵測到特殊事件：</b><br>{compliance_warnings}</div>
+            <div class="alert-title">{t_dict['warn_high']}</div>
+            <div class="info-body">{t_dict['warn_high_sub']}{compliance_warnings}</div>
         </div>
         """, unsafe_allow_html=True)
 
     if is_alert:
-        st.markdown("""
+        st.markdown(f"""
         <div class="base-card alert-card">
-            <div class="alert-title">🚨 法規升級警告 (PRI/PSI)</div>
-            <div class="info-body">依據法規標準，此案涉及檢驗異常 (ER) 且達標，請立即<b>重新開立專屬的 PRI/PSI 案件</b>！</div>
+            <div class="alert-title">{t_dict['warn_pri']}</div>
+            <div class="info-body">{t_dict['warn_pri_sub']}</div>
         </div>
         """, unsafe_allow_html=True)
 
     if reasoning:
         st.markdown(f"""
         <div class="base-card info-card">
-            <div class="info-title">💡 系統評估依據</div>
+            <div class="info-title">{t_dict['info_reason']}</div>
             <div class="info-body">{reasoning}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -274,16 +327,16 @@ def render_assistant_message(msg_content):
     if log_content:
         badge_html = ""
         if "Complaint" in classification:
-            badge_html = '<div class="badge-complaint">🔴 客訴 (Complaint)</div>'
+            badge_html = f'<div class="badge-complaint">{t_dict["badge_comp"]}</div>'
         elif "Inquiry" in classification:
-            badge_html = '<div class="badge-inquiry">🟢 一般詢問 (Inquiry)</div>'
+            badge_html = f'<div class="badge-inquiry">{t_dict["badge_inq"]}</div>'
         elif "Logistics" in classification:
-            badge_html = '<div class="badge-logistics">🟠 物流客訴 (Logistics Claim)</div>'
+            badge_html = f'<div class="badge-logistics">{t_dict["badge_log"]}</div>'
 
         encoded_log = urllib.parse.quote(log_content)
         dl_href = f"data:text/plain;charset=utf-8,{encoded_log}"
         
-        email_body_text = "這是本次的日誌備份：\r\n\r\n" + log_content.replace('\r\n', '\n').replace('\n', '\r\n')
+        email_body_text = "Backup Log:\r\n\r\n" + log_content.replace('\r\n', '\n').replace('\n', '\r\n')
         encoded_subject = urllib.parse.quote(subject_title)
         encoded_body = urllib.parse.quote(email_body_text)
         gmail_href = f"https://mail.google.com/mail/?view=cm&fs=1&to={default_email}&su={encoded_subject}&body={encoded_body}"
@@ -293,36 +346,36 @@ def render_assistant_message(msg_content):
             {badge_html}
             <div style="white-space: pre-wrap; font-family: inherit; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0;">{log_content}</div>
             <div class="action-bar">
-                <button class="action-btn btn-copy" data-clipboard="{encoded_log}">📋 複製日誌</button>
-                <a href="{dl_href}" download="{file_name}" class="action-btn btn-download">💾 下載 TXT</a>
-                <a href="{gmail_href}" target="_blank" class="action-btn btn-email">📧 用 Gmail 寄送</a>
+                <button class="action-btn btn-copy" data-clipboard="{encoded_log}">{t_dict['btn_copy']}</button>
+                <a href="{dl_href}" download="{file_name}" class="action-btn btn-download">{t_dict['btn_dl']}</a>
+                <a href="{gmail_href}" target="_blank" class="action-btn btn-email">{t_dict['btn_email']}</a>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+# 顯示對話紀錄
 for msg in st.session_state.messages:
     if msg["role"] == "assistant":
-        if msg["content"].startswith("您好！") or msg["content"].startswith("對話已清除"):
-            with st.chat_message("assistant"): st.markdown(msg["content"])
+        if msg["content"] == "WELCOME_MSG": # 動態渲染雙語歡迎訊息
+            with st.chat_message("assistant"): st.markdown(t["msg_welcome"])
         else:
-            render_assistant_message(msg["content"])
+            render_assistant_message(msg["content"], t)
     else:
-        # UI 隱藏動態語言指令，保持對話畫面乾淨
         display_text = msg["content"].split("\n\n[CRITICAL INSTRUCTION:")[0]
         with st.chat_message("user"): st.markdown(display_text)
 
-# --- 8. 輸入區 ---
+# --- 9. 輸入區 ---
 st.markdown("---")
 dynamic_mic_key = f"STT_{st.session_state.mic_key}"
-spoken_text = speech_to_text(language='zh-TW', start_prompt="🎙️ 點此開始錄音", stop_prompt="⏹️ 停止錄音並送出", just_once=True, key=dynamic_mic_key)
-text_input = st.chat_input("或在此輸入文字狀況...")
+spoken_text = speech_to_text(language='zh-TW' if lang == 'TW' else 'en-US', start_prompt=t["mic_start"], stop_prompt=t["mic_stop"], just_once=True, key=dynamic_mic_key)
+text_input = st.chat_input(t["chat_ph"])
 
 user_input = spoken_text if spoken_text else text_input
 
 if user_input:
-    # 🔥 動態綁定語言指令 (偷偷塞給 AI 的最高權限指令)
-    if output_lang == "English":
-        ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: You MUST generate your ENTIRE response, including all headers, bullet points, logs, and explanations, strictly in English.]"
+    # 動態綁定語言指令給 AI
+    if lang == "EN":
+        ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: You MUST generate your ENTIRE response (including headers, bullet points, reasoning, ask user prompts, and logs) strictly in English. Evaluate PRI/PSI reasoning in English.]"
     else:
         ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: 請務必使用「繁體中文」輸出所有內容、標題與日誌。]"
 
@@ -340,13 +393,12 @@ if user_input:
         ])
 
     with st.chat_message("assistant"):
-        status = st.status("🧠 系統分析中...", expanded=True)
+        status = st.status(t["status_analyzing"], expanded=True)
         try:
-            # 發送夾帶語言指令的訊息給 AI
             response = st.session_state.chat_session.send_message(ai_payload)
-            status.update(label="✅ 處理完成！", state="complete", expanded=False)
+            status.update(label=t["status_done"], state="complete", expanded=False)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
             st.rerun() 
         except Exception as e:
-            status.update(label="❌ 發生錯誤", state="error", expanded=False)
-            st.error(f"請檢查網路狀態或 API。\n{e}")
+            status.update(label=t["status_err"], state="error", expanded=False)
+            st.error(f"{t['err_net']}\n{e}")
