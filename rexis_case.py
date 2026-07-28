@@ -111,12 +111,12 @@ ui_text = {
     "TW": {
         "title_sub": "自動化服務日誌轉換與 PRI/PSI 智能法規篩選系統",
         "guide_title": "📖 系統操作指南 (點擊展開)",
-        "guide_content": "**👋 歡迎！本系統將協助您以最高效率產出標準日誌，並自動把關法規風險。**\n\n* 🎙️ **語音/文字輸入：** 若案件涉及檢驗數值異常 (ER)，請務必提及「測試項目」、「原數值」與「重測數值」。提及「醫院名稱」將自動為檔案命名。\n* 🛡️ **合規檢查：** 系統會自動檢查您是否遺漏了**產品批號 (Lot)、儀器序號 (SN) 或軟體版本**，並在需要時主動提醒您補齊。\n* 🚨 **高風險攔截：** 若提及資安威脅、仿冒品或資料隱私請求，系統會立即警告並建議通報窗口。\n* ⚡ **鍵盤快捷鍵：** `Ctrl+Shift+C` (複製日誌) / `Ctrl+Shift+E` (Gmail 寄送) / `Ctrl+Shift+S` (下載 TXT)",
+        "guide_content": "**👋 歡迎！本系統將協助您以最高效率產出標準日誌，並自動把關法規風險。**\n\n* 🎙️ **語音/文字輸入：** 若案件涉及檢驗數值異常 (ER) 或安全疑慮，請務必提及「測試項目」、「原數值」與「重測數值」。提及「醫院名稱」將自動為檔案命名。\n* 🛡️ **合規檢查：** 系統會自動依據 PRI/PSI 文件，檢查您是否遺漏了**產品批號 (Lot)、儀器序號 (SN) 或軟體版本**，並在需要時主動提醒您補齊。\n* 🚨 **高風險攔截：** 若提及資安威脅、仿冒品或資料隱私請求，系統會立即警告並建議通報窗口。\n* ⚡ **鍵盤快捷鍵：** `Ctrl+Shift+C` (複製日誌) / `Ctrl+Shift+E` (Gmail 寄送) / `Ctrl+Shift+S` (下載 TXT)",
         "sidebar_settings": "⚙️ 系統設定",
         "sidebar_email": "📩 **個人備份設定 (Gmail 專屬)**",
         "sidebar_email_ph": "your.name@roche.com",
         "sidebar_clear": "🔄 清除對話紀錄",
-        "msg_welcome": "您好！請輸入現場狀況，推薦使用下方麥克風 🎙️ 語音輸入。\n\n💡 系統將會協助您檢查**合規必填資訊**，並自動評估法規風險。",
+        "msg_welcome": "您好！請輸入現場狀況，推薦使用下方麥克風 🎙️ 語音輸入。\n\n💡 系統將會協助您檢查**合規必填資訊**，並自動綜合評估 PRI & PSI 法規風險。",
         "mic_start": "🎙️ 點此開始錄音",
         "mic_stop": "⏹️ 停止錄音並送出",
         "chat_ph": "或在此輸入文字狀況...",
@@ -134,18 +134,18 @@ ui_text = {
         "warn_high": "🚨 高風險事件通報提醒",
         "warn_high_sub": "<b>系統偵測到特殊事件：</b><br>",
         "warn_pri": "🚨 法規升級警告 (PRI/PSI)",
-        "warn_pri_sub": "依據法規標準，此案涉及檢驗異常 (ER) 且達標，請立即<b>重新開立專屬的 PRI/PSI 案件</b>！",
+        "warn_pri_sub": "依據法規標準，此案涉及潛在患者安全影響或檢驗異常 (ER) 且達標，請立即<b>重新開立專屬的 PRI/PSI 案件</b>！",
         "info_reason": "💡 系統評估依據"
     },
     "EN": {
         "title_sub": "Automated Service Log Conversion & PRI/PSI Compliance Screening System",
         "guide_title": "📖 System User Guide (Click to expand)",
-        "guide_content": "**👋 Welcome! This system helps you generate standard logs efficiently while automatically checking for compliance risks.**\n\n* 🎙️ **Input:** If the case involves Abnormal Test Results (ER), mention the 'Test Parameter', 'Original Result', and 'Retest Result'. Mentioning 'Hospital Name' will auto-name your file.\n* 🛡️ **Compliance Check:** The system verifies if **Lot Number, Serial Number (SN), or Software Version** are missing and prompts you to provide them.\n* 🚨 **High-Risk Intercept:** Warns and advises on Cybersecurity threats, Counterfeit products, or Data Privacy requests.\n* ⚡ **Keyboard Shortcuts:** `Ctrl+Shift+C` (Copy Log) / `Ctrl+Shift+E` (Send via Gmail) / `Ctrl+Shift+S` (Download TXT)",
+        "guide_content": "**👋 Welcome! This system helps you generate standard logs efficiently while automatically checking for compliance risks.**\n\n* 🎙️ **Input:** If the case involves Abnormal Test Results (ER) or safety impacts, mention the 'Test Parameter', 'Original Result', and 'Retest Result'. Mentioning 'Hospital Name' will auto-name your file.\n* 🛡️ **Compliance Check:** The system verifies if **Lot Number, Serial Number (SN), or Software Version** are missing (based on PRI/PSI criteria) and prompts you to provide them.\n* 🚨 **High-Risk Intercept:** Warns and advises on Cybersecurity threats, Counterfeit products, or Data Privacy requests.\n* ⚡ **Keyboard Shortcuts:** `Ctrl+Shift+C` (Copy Log) / `Ctrl+Shift+E` (Send via Gmail) / `Ctrl+Shift+S` (Download TXT)",
         "sidebar_settings": "⚙️ Settings",
         "sidebar_email": "📩 **Personal Backup (Gmail only)**",
         "sidebar_email_ph": "your.name@roche.com",
         "sidebar_clear": "🔄 Clear Chat History",
-        "msg_welcome": "Hello! Please describe the on-site situation. Microphone 🎙️ input is recommended.\n\n💡 The system will assist in checking **mandatory compliance information** and assess regulatory risks.",
+        "msg_welcome": "Hello! Please describe the on-site situation. Microphone 🎙️ input is recommended.\n\n💡 The system will assist in checking **mandatory compliance information** and comprehensively assess PRI & PSI regulatory risks.",
         "mic_start": "🎙️ Click to Start Recording",
         "mic_stop": "⏹️ Stop Recording & Submit",
         "chat_ph": "Or type the situation here...",
@@ -163,7 +163,7 @@ ui_text = {
         "warn_high": "🚨 High-Risk Event Alert",
         "warn_high_sub": "<b>Special event detected:</b><br>",
         "warn_pri": "🚨 Regulatory Escalation (PRI/PSI)",
-        "warn_pri_sub": "Based on regulatory standards, this case involves an Abnormal Test Result (ER) that meets criteria. Please <b>open a dedicated PRI/PSI case immediately</b>!",
+        "warn_pri_sub": "Based on regulatory standards, this case involves a potential patient safety impact or Abnormal Test Result (ER) that meets criteria. Please <b>open a dedicated PRI/PSI case immediately</b>!",
         "info_reason": "💡 System Reasoning"
     }
 }
@@ -203,16 +203,19 @@ st.markdown(f'<div class="roche-subtitle">{t["title_sub"]}</div>', unsafe_allow_
 with st.expander(t["guide_title"]):
     st.markdown(t["guide_content"])
 
+# 🔥 更新：支援雙文件載入的 Cache Function
 @st.cache_resource
-def load_document_to_gemini(key, file_path):
+def load_document_to_gemini(key, file_path, doc_name):
     genai.configure(api_key=key)
     if os.path.exists(file_path):
-        try: return genai.upload_file(path=file_path, display_name="PRI_Criteria")
+        try: return genai.upload_file(path=file_path, display_name=doc_name)
         except Exception: return None
     return None
-pdf_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf")
 
-# --- 7. 系統提示詞 ---
+pri_document = load_document_to_gemini(api_key, "PRI_Criteria.pdf", "PRI_Criteria")
+psi_document = load_document_to_gemini(api_key, "PSI_Criteria.pdf", "PSI_Criteria")
+
+# --- 7. 系統提示詞 (🔥 更新：加入 PSI 邏輯) ---
 SYSTEM_PROMPT = """
 你是一位專業的 IVD 設備支援主管，精通 Roche QARA 規範 (MQMS-PM-GSP-04 V11)。
 請嚴格評估使用者的輸入內容，確保合規，並輸出標準格式。
@@ -230,17 +233,18 @@ SYSTEM_PROMPT = """
 - 若涉及重大傳染病(如伊波拉)且設備故障，觸發 [pPHT_ALERT] (需2天內通報)
 - 自動隱藏/打碼所有出現的病患真實姓名與身分證字號。
 
-【PRI / PSI 判斷邏輯】
-- 單純硬體故障、校正(Calibration)/QC 失敗：不屬於 ER，無需 PRI。
-- 真實 ER (病患數值異常)：確認偏差是否達標。
+【PRI / PSI 判斷邏輯 - 雙重文件評估】
+- 系統已附上《PRI_Criteria》與《PSI_Criteria》兩份法規參考文件。
+- 單純硬體故障、校正(Calibration)/QC 失敗：不屬於 ER，通常無需 PRI/PSI。
+- 真實 ER (病患數值異常) 或潛在危害：請務必綜合考量「兩份文件」的標準，確認偏差是否達標，或是否構成患者安全風險 (PSI)。
 
 【處理流程 - 重要！】
-步驟 1：檢查資訊是否齊全。一份合格的日誌「必須」包含以下至少一項追蹤資訊：
+步驟 1：依據 PRI 與 PSI 規範，檢查資訊是否齊全。一份合格的日誌「必須」包含以下至少一項追蹤資訊：
   - 儀器序號 (SN)
   - 產品批號 (Lot)
   - 軟體版本 (Software version)
   如果「目前所有的對話紀錄中」完全沒有提及上述任何一項，請「不要」產出 [LOG]！
-  你必須先使用 [ASK_USER] 標籤來詢問使用者：「請問本次案件的儀器序號(SN)或產品批號(Lot)為何？請補齊後為您產出完整日誌。」
+  你必須先使用 [ASK_USER] 標籤來詢問使用者：「請問本次案件的儀器序號(SN)或產品批號(Lot)為何？以利進行完整的 PRI/PSI 評估。請補齊後為您產出完整日誌。」
 
 步驟 2：當資訊齊全（包含使用者後續補充的資訊）時，才產出完整的標籤格式。
 
@@ -250,8 +254,8 @@ SYSTEM_PROMPT = """
 [CLASSIFICATION] (填入 Inquiry, Logistics Claim, 或 Complaint)
 [HOSP_NAME] 醫院名稱 (若無請填 NA)
 [COMPLIANCE_WARNINGS] (若觸發高風險攔截，請列具體警告；若無填 NA)
-[REASONING] 你的 PRI/PSI 評估理由 (若不需評估填 NA)
-[PRI_ALERT] YES 或 NO
+[REASONING] 你的 PRI/PSI 綜合評估理由 (若不需評估填 NA)
+[PRI_ALERT] YES 或 NO (若符合 PRI 或 PSI 任何一項，請填 YES)
 [ASK_USER] (若遺漏 SN/Lot/SW，請填入你要詢問使用者的話；若資訊齊全，請填 NA)
 
 (只有當 [ASK_USER] 為 NA 時，才輸出以下 [LOG] 區塊)
@@ -356,7 +360,7 @@ def render_assistant_message(msg_content, t_dict):
 # 顯示對話紀錄
 for msg in st.session_state.messages:
     if msg["role"] == "assistant":
-        if msg["content"] == "WELCOME_MSG": # 動態渲染雙語歡迎訊息
+        if msg["content"] == "WELCOME_MSG": 
             with st.chat_message("assistant"): st.markdown(t["msg_welcome"])
         else:
             render_assistant_message(msg["content"], t)
@@ -375,7 +379,7 @@ user_input = spoken_text if spoken_text else text_input
 if user_input:
     # 動態綁定語言指令給 AI
     if lang == "EN":
-        ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: You MUST generate your ENTIRE response (including headers, bullet points, reasoning, ask user prompts, and logs) strictly in English. Evaluate PRI/PSI reasoning in English.]"
+        ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: You MUST generate your ENTIRE response (including headers, bullet points, reasoning, ask user prompts, and logs) strictly in English. Evaluate BOTH PRI and PSI reasoning in English.]"
     else:
         ai_payload = user_input + "\n\n[CRITICAL INSTRUCTION: 請務必使用「繁體中文」輸出所有內容、標題與日誌。]"
 
@@ -386,10 +390,14 @@ if user_input:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-3.6-flash') 
         history_parts = [SYSTEM_PROMPT]
-        if pdf_document: history_parts.insert(0, pdf_document)
+        
+        # 🔥 更新：將兩份文件都插入對話歷史中
+        if pri_document: history_parts.insert(0, pri_document)
+        if psi_document: history_parts.insert(0, psi_document)
+        
         st.session_state.chat_session = model.start_chat(history=[
             {"role": "user", "parts": history_parts},
-            {"role": "model", "parts": ["OK，我已完全了解。我會嚴格使用標籤格式輸出，並在必要時主動詢問缺少資訊。"]}
+            {"role": "model", "parts": ["OK，我已完全了解。我會嚴格使用標籤格式輸出，並綜合參考 PRI 與 PSI 雙份文件進行法規評估，在必要時主動詢問缺少資訊。"]}
         ])
 
     with st.chat_message("assistant"):
